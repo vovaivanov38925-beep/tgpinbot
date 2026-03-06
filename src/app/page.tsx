@@ -134,6 +134,8 @@ export default function PinterestApp() {
   const [newTaskDueDate, setNewTaskDueDate] = useState('')
   const [newTaskReminderTime, setNewTaskReminderTime] = useState('')
   const [isCategorizing, setIsCategorizing] = useState(false)
+  const [isExtracting, setIsExtracting] = useState(false)
+  const [extractedData, setExtractedData] = useState<{imageUrl: string, title: string | null, description: string | null} | null>(null)
   const [levelProgress, setLevelProgress] = useState(0)
 
   // Initialize data
@@ -186,8 +188,43 @@ export default function PinterestApp() {
     }
   }, [user])
 
+  // Extract image from Pinterest URL
+  const extractFromUrl = async (url: string) => {
+    if (!url) return
+    
+    setIsExtracting(true)
+    setExtractedData(null)
+    
+    try {
+      const res = await fetch('/api/extract-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      })
+      const data = await res.json()
+      
+      if (data.imageUrl) {
+        setExtractedData(data)
+        if (data.title && !newPinTitle) {
+          setNewPinTitle(data.title)
+        }
+      } else if (data.error) {
+        console.log('Extract error:', data.error)
+        // If extraction failed, try to use URL directly
+        setExtractedData({ imageUrl: url, title: null, description: null })
+      }
+    } catch (error) {
+      console.error('Error extracting:', error)
+      // Fallback to using URL directly
+      setExtractedData({ imageUrl: url, title: null, description: null })
+    } finally {
+      setIsExtracting(false)
+    }
+  }
+
   const handleAddPin = async () => {
-    if (!user || !newPinUrl) return
+    const imageUrl = extractedData?.imageUrl || newPinUrl
+    if (!user || !imageUrl) return
 
     setIsCategorizing(true)
     try {
@@ -195,7 +232,7 @@ export default function PinterestApp() {
       const catRes = await fetch('/api/ai/categorize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newPinTitle, description: '' })
+        body: JSON.stringify({ title: newPinTitle || extractedData?.title, description: extractedData?.description || '' })
       })
       const catData = await catRes.json()
 
@@ -205,10 +242,11 @@ export default function PinterestApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.id,
-          imageUrl: newPinUrl,
-          title: catData.suggestedTitle || newPinTitle || 'Новый пин',
-          description: catData.suggestedDescription || '',
-          category: catData.category || 'other'
+          imageUrl: imageUrl,
+          title: newPinTitle || extractedData?.title || catData.suggestedTitle || 'Новый пин',
+          description: extractedData?.description || catData.suggestedDescription || '',
+          category: catData.category || 'other',
+          sourceUrl: extractedData?.sourceUrl || newPinUrl
         })
       })
       const pin = await res.json()
@@ -221,6 +259,7 @@ export default function PinterestApp() {
 
       setNewPinUrl('')
       setNewPinTitle('')
+      setExtractedData(null)
       setShowAddPin(false)
     } catch (error) {
       console.error('Error adding pin:', error)
@@ -746,23 +785,47 @@ export default function PinterestApp() {
       </main>
 
       {/* Add Pin Dialog */}
-      <Dialog open={showAddPin} onOpenChange={setShowAddPin}>
+      <Dialog open={showAddPin} onOpenChange={(open) => {
+        setShowAddPin(open)
+        if (!open) {
+          setNewPinUrl('')
+          setNewPinTitle('')
+          setExtractedData(null)
+        }
+      }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Добавить пин</DialogTitle>
             <DialogDescription>
-              Вставьте ссылку на изображение или загрузите с Pinterest
+              Вставьте ссылку из Pinterest или прямую ссылку на изображение
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">URL изображения</label>
-              <Input
-                placeholder="https://..."
-                value={newPinUrl}
-                onChange={(e) => setNewPinUrl(e.target.value)}
-                className="mt-1"
-              />
+              <label className="text-sm font-medium">Ссылка</label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  placeholder="https://pinterest.com/pin/... или ссылка на картинку"
+                  value={newPinUrl}
+                  onChange={(e) => setNewPinUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && extractFromUrl(newPinUrl)}
+                />
+                <Button 
+                  onClick={() => extractFromUrl(newPinUrl)}
+                  disabled={!newPinUrl || isExtracting}
+                  size="icon"
+                  className="gradient-pink text-white border-0 shrink-0"
+                >
+                  {isExtracting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ExternalLink className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Нажмите кнопку справа для извлечения картинки из Pinterest
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">Название (опционально)</label>
@@ -773,19 +836,37 @@ export default function PinterestApp() {
                 className="mt-1"
               />
             </div>
-            {newPinUrl && (
-              <div className="aspect-square rounded-lg overflow-hidden bg-muted">
-                <img src={newPinUrl} alt="Preview" className="w-full h-full object-cover" />
+            {(extractedData?.imageUrl || newPinUrl) && (
+              <div className="aspect-square rounded-lg overflow-hidden bg-muted relative">
+                {isExtracting ? (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <img 
+                    src={extractedData?.imageUrl || newPinUrl} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%23f0f0f0" width="100" height="100"/><text x="50" y="50" text-anchor="middle" dy=".3em" fill="%23999">Ошибка загрузки</text></svg>'
+                    }}
+                  />
+                )}
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddPin(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowAddPin(false)
+              setNewPinUrl('')
+              setNewPinTitle('')
+              setExtractedData(null)
+            }}>
               Отмена
             </Button>
             <Button
               onClick={handleAddPin}
-              disabled={!newPinUrl || isCategorizing}
+              disabled={(!extractedData?.imageUrl && !newPinUrl) || isCategorizing}
               className="gradient-pink text-white border-0"
             >
               {isCategorizing ? (
