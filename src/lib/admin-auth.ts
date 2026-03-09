@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { prisma } from './db'
+import { db as prisma } from './db'
 import crypto from 'crypto'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-in-production'
