@@ -428,20 +428,20 @@ export default function PinterestApp() {
       {/* Main Content */}
       <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col">
         <Tabs defaultValue="pins" className="w-full flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid grid-cols-4 w-full bg-white/50 border border-pink/10 shrink-0 gap-1 p-1">
-            <TabsTrigger value="pins" className="data-[state=active]:gradient-pink data-[state=active]:text-white text-xs px-1">
+          <TabsList className="grid grid-cols-4 w-full bg-muted/50 shrink-0 h-11">
+            <TabsTrigger value="pins" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg transition-all">
               <PinIcon className="w-4 h-4 mr-1" />
               Пины
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="data-[state=active]:gradient-lavender data-[state=active]:text-white text-xs px-1">
+            <TabsTrigger value="tasks" className="data-[state=active]:bg-violet-500 data-[state=active]:text-white rounded-lg transition-all">
               <ListTodo className="w-4 h-4 mr-1" />
               Задачи
             </TabsTrigger>
-            <TabsTrigger value="progress" className="data-[state=active]:gradient-peach data-[state=active]:text-white text-xs px-1">
+            <TabsTrigger value="progress" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white rounded-lg transition-all">
               <Trophy className="w-4 h-4 mr-1" />
               Прогресс
             </TabsTrigger>
-            <TabsTrigger value="premium" className="data-[state=active]:gradient-full data-[state=active]:text-white text-xs px-1">
+            <TabsTrigger value="premium" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-violet-500 data-[state=active]:text-white rounded-lg transition-all">
               <Diamond className="w-4 h-4 mr-1" />
               Премиум
             </TabsTrigger>
