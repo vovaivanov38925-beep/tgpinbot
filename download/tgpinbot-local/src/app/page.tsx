@@ -613,8 +613,8 @@ export default function PinterestApp() {
           </TabsContent>
 
           {/* Progress Tab */}
-          <TabsContent value="progress" className="mt-4 flex-1 overflow-y-auto data-[state=inactive]:hidden">
-            <div className="space-y-4 pr-2 pb-4">
+          <TabsContent value="progress" className="mt-4 flex-1 overflow-y-auto data-[state=inactive]:hidden pb-4">
+            <div className="space-y-4 pr-2">
               {/* Stats */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="gradient-pink rounded-lg p-3 text-center">
@@ -646,7 +646,7 @@ export default function PinterestApp() {
                 </CardContent>
               </Card>
 
-              {/* Achievements - simple list */}
+              {/* Achievements */}
               <Card className="border-pink/10">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">Достижения</CardTitle>
