@@ -372,11 +372,11 @@ export default function PinterestApp() {
               </Avatar>
               <div>
                 <p className="font-semibold text-foreground">
-                  {user?.firstName || 'Пользователь'}
+                  {user?.firstName || 'Гость'}
                 </p>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Star className="w-3 h-3 text-yellow-500" />
-                  Уровень {user?.level || 1}
+                  lvl {user?.level || 1}
                 </p>
               </div>
             </div>
