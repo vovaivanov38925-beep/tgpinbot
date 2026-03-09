@@ -428,22 +428,22 @@ export default function PinterestApp() {
       {/* Main Content */}
       <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col">
         <Tabs defaultValue="pins" className="w-full flex-1 flex flex-col overflow-hidden">
-          <TabsList className="w-full bg-muted/30 shrink-0 flex gap-1 p-1 rounded-2xl">
-            <TabsTrigger value="pins" className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2.5 gap-1">
-              <PinIcon className="w-5 h-5" />
-              <span className="text-xs font-medium">Пины</span>
+          <TabsList className="w-full bg-muted/30 shrink-0 flex gap-2 p-2 rounded-2xl min-h-[72px]">
+            <TabsTrigger value="pins" className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
+              <PinIcon className="w-6 h-6" />
+              <span className="text-sm font-medium">Пины</span>
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex-1 data-[state=active]:bg-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2.5 gap-1">
-              <ListTodo className="w-5 h-5" />
-              <span className="text-xs font-medium">Задачи</span>
+            <TabsTrigger value="tasks" className="flex-1 data-[state=active]:bg-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
+              <ListTodo className="w-6 h-6" />
+              <span className="text-sm font-medium">Задачи</span>
             </TabsTrigger>
-            <TabsTrigger value="progress" className="flex-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2.5 gap-1">
-              <Trophy className="w-5 h-5" />
-              <span className="text-xs font-medium">Прогресс</span>
+            <TabsTrigger value="progress" className="flex-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
+              <Trophy className="w-6 h-6" />
+              <span className="text-sm font-medium">Прогресс</span>
             </TabsTrigger>
-            <TabsTrigger value="premium" className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:via-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2.5 gap-1">
-              <Diamond className="w-5 h-5" />
-              <span className="text-xs font-medium">Премиум</span>
+            <TabsTrigger value="premium" className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:via-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
+              <Diamond className="w-6 h-6" />
+              <span className="text-sm font-medium">Премиум</span>
             </TabsTrigger>
           </TabsList>
 
