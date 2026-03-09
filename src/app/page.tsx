@@ -428,7 +428,7 @@ export default function PinterestApp() {
           </TabsList>
 
           {/* Pins Tab */}
-          <TabsContent value="pins" className="mt-4 flex-1 overflow-hidden data-[state=inactive]:hidden">
+          <TabsContent value="pins" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="text-lg font-semibold">Мои пины</h2>
               <Button
@@ -441,7 +441,7 @@ export default function PinterestApp() {
               </Button>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 h-0">
               <div className="grid grid-cols-2 gap-3 pr-2 pb-4">
                 {pins.length === 0 ? (
                   <div className="col-span-2 text-center py-12">
@@ -491,7 +491,7 @@ export default function PinterestApp() {
           </TabsContent>
 
           {/* Tasks Tab */}
-          <TabsContent value="tasks" className="mt-4 flex-1 overflow-hidden data-[state=inactive]:hidden">
+          <TabsContent value="tasks" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="text-lg font-semibold">Мои задачи</h2>
               <Button
@@ -504,7 +504,7 @@ export default function PinterestApp() {
               </Button>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 h-0">
               <div className="space-y-3 pr-2 pb-4">
                 {tasks.length === 0 ? (
                   <div className="text-center py-12">
@@ -613,8 +613,8 @@ export default function PinterestApp() {
           </TabsContent>
 
           {/* Progress Tab */}
-          <TabsContent value="progress" className="mt-4 flex-1 overflow-hidden data-[state=inactive]:hidden">
-            <ScrollArea className="flex-1">
+          <TabsContent value="progress" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+            <ScrollArea className="flex-1 h-0">
               <div className="space-y-4 pr-2 pb-4">
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-3">
@@ -704,8 +704,8 @@ export default function PinterestApp() {
           </TabsContent>
 
           {/* Premium Tab */}
-          <TabsContent value="premium" className="mt-4 flex-1 overflow-hidden data-[state=inactive]:hidden">
-            <ScrollArea className="flex-1">
+          <TabsContent value="premium" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+            <ScrollArea className="flex-1 h-0">
               <div className="space-y-4 pr-2 pb-4">
                 <Card className="gradient-full border-0 overflow-hidden">
                   <CardContent className="p-6 text-center">
