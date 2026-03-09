@@ -428,20 +428,20 @@ export default function PinterestApp() {
       {/* Main Content */}
       <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col">
         <Tabs defaultValue="pins" className="w-full flex-1 flex flex-col overflow-hidden">
-          <TabsList className="w-full bg-transparent shrink-0 flex gap-0 px-1 rounded-none h-16">
-            <TabsTrigger value="pins" className="flex-1 data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none transition-all flex flex-col items-center justify-center py-2 gap-1 border-b-2 border-transparent data-[state=active]:border-primary">
+          <TabsList className="w-full bg-muted/30 shrink-0 flex gap-1 p-1 rounded-2xl">
+            <TabsTrigger value="pins" className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2.5 gap-1">
               <PinIcon className="w-5 h-5" />
               <span className="text-xs font-medium">Пины</span>
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex-1 data-[state=active]:bg-transparent data-[state=active]:text-violet-500 rounded-none transition-all flex flex-col items-center justify-center py-2 gap-1 border-b-2 border-transparent data-[state=active]:border-violet-500">
+            <TabsTrigger value="tasks" className="flex-1 data-[state=active]:bg-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2.5 gap-1">
               <ListTodo className="w-5 h-5" />
               <span className="text-xs font-medium">Задачи</span>
             </TabsTrigger>
-            <TabsTrigger value="progress" className="flex-1 data-[state=active]:bg-transparent data-[state=active]:text-amber-500 rounded-none transition-all flex flex-col items-center justify-center py-2 gap-1 border-b-2 border-transparent data-[state=active]:border-amber-500">
+            <TabsTrigger value="progress" className="flex-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2.5 gap-1">
               <Trophy className="w-5 h-5" />
               <span className="text-xs font-medium">Прогресс</span>
             </TabsTrigger>
-            <TabsTrigger value="premium" className="flex-1 data-[state=active]:bg-transparent data-[state=active]:text-pink-500 rounded-none transition-all flex flex-col items-center justify-center py-2 gap-1 border-b-2 border-transparent data-[state=active]:border-pink-500">
+            <TabsTrigger value="premium" className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:via-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2.5 gap-1">
               <Diamond className="w-5 h-5" />
               <span className="text-xs font-medium">Премиум</span>
             </TabsTrigger>
