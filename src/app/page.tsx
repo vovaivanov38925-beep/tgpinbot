@@ -143,7 +143,7 @@ export default function PinterestApp() {
     const initApp = async () => {
       try {
         // Get Telegram user data
-        let telegramId = 'demo_' + Date.now()
+        let telegramId = 'demo_user' // Fixed demo ID for testing outside Telegram
         let firstName = 'Гость'
         let lastName = ''
         let username = null
