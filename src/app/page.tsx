@@ -97,8 +97,8 @@ const sampleAchievements: Achievement[] = [
   { id: '2', name: 'Коллекционер', description: 'Сохраните 10 пинов', icon: 'Folder', category: 'pins', requirement: 10, points: 50, unlocked: false },
   { id: '3', name: 'Начинающий', description: 'Выполните первую задачу', icon: 'CheckCircle', category: 'tasks', requirement: 1, points: 15, unlocked: false },
   { id: '4', name: 'Деятельный', description: 'Выполните 10 задач', icon: 'ListTodo', category: 'tasks', requirement: 10, points: 75, unlocked: false },
-  { id: '5', name: 'Уровень 5', description: 'Достигните 5 уровня', icon: 'Star', category: 'social', requirement: 5, points: 100, unlocked: false },
-  { id: '6', name: 'Премиум пользователь', description: 'Оформите премиум подписку', icon: 'Diamond', category: 'premium', requirement: 1, points: 100, unlocked: false }
+  { id: '5', name: 'Опытный', description: 'Наберите 100 очков', icon: 'Star', category: 'social', requirement: 100, points: 50, unlocked: false },
+  { id: '6', name: 'Премиум', description: 'Оформите премиум подписку', icon: 'Diamond', category: 'premium', requirement: 1, points: 100, unlocked: false }
 ]
 
 export default function PinterestApp() {
