@@ -41,6 +41,10 @@ async function main() {
   })
   console.log('Payment settings created')
 
+  // Delete existing achievements first
+  await prisma.userAchievement.deleteMany()
+  await prisma.achievement.deleteMany()
+
   const achievements = [
     { name: 'Первый шаг', description: 'Сохраните свой первый пин', icon: 'Pin', category: 'pins', requirement: 1, points: 10 },
     { name: 'Коллекционер', description: 'Сохраните 10 пинов', icon: 'Folder', category: 'pins', requirement: 10, points: 50 },

@@ -635,7 +635,7 @@ export default function PinterestApp() {
           {/* Progress Tab */}
           <TabsContent value="progress" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
             <ScrollArea className="flex-1 h-0">
-              <div className="space-y-4 pr-2 pb-4">
+              <div className="space-y-4 px-1 pb-4">
                 {/* Level Header */}
                 <Card className="gradient-full border-0 overflow-hidden">
                   <CardContent className="p-6 text-center">
@@ -683,8 +683,8 @@ export default function PinterestApp() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {achievements.map((a, i) => (
-                        <div key={i} className="flex items-center gap-3">
+                      {achievements.map((a) => (
+                        <div key={a.id} className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${a.unlocked ? 'gradient-pink' : 'bg-muted'}`}>
                             {achievementIcons[a.icon] || <Star className={`w-5 h-5 ${a.unlocked ? 'text-white' : 'text-muted-foreground'}`} />}
                           </div>
