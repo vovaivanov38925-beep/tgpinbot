@@ -408,20 +408,20 @@ export default function PinterestApp() {
       {/* Main Content */}
       <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col">
         <Tabs defaultValue="pins" className="w-full flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid grid-cols-4 w-full bg-white/50 border border-pink/10 shrink-0">
-            <TabsTrigger value="pins" className="data-[state=active]:gradient-pink data-[state=active]:text-white">
+          <TabsList className="grid grid-cols-4 w-full bg-white/50 border border-pink/10 shrink-0 gap-1 p-1">
+            <TabsTrigger value="pins" className="data-[state=active]:gradient-pink data-[state=active]:text-white text-xs px-1">
               <PinIcon className="w-4 h-4 mr-1" />
               Пины
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="data-[state=active]:gradient-lavender data-[state=active]:text-white">
+            <TabsTrigger value="tasks" className="data-[state=active]:gradient-lavender data-[state=active]:text-white text-xs px-1">
               <ListTodo className="w-4 h-4 mr-1" />
               Задачи
             </TabsTrigger>
-            <TabsTrigger value="progress" className="data-[state=active]:gradient-peach data-[state=active]:text-white">
+            <TabsTrigger value="progress" className="data-[state=active]:gradient-peach data-[state=active]:text-white text-xs px-1">
               <Trophy className="w-4 h-4 mr-1" />
               Прогресс
             </TabsTrigger>
-            <TabsTrigger value="premium" className="data-[state=active]:gradient-full data-[state=active]:text-white">
+            <TabsTrigger value="premium" className="data-[state=active]:gradient-full data-[state=active]:text-white text-xs px-1">
               <Diamond className="w-4 h-4 mr-1" />
               Премиум
             </TabsTrigger>
