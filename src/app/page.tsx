@@ -635,54 +635,72 @@ export default function PinterestApp() {
           {/* Progress Tab */}
           <TabsContent value="progress" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
             <ScrollArea className="flex-1 h-0">
-              <div className="space-y-4 pr-2 pb-8">
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="gradient-pink rounded-lg p-3 text-center">
-                  <PinIcon className="w-6 h-6 mx-auto mb-1 text-white/80" />
-                  <p className="text-xl font-bold text-white">{pins.length}</p>
-                  <p className="text-xs text-white/80">Пинов</p>
-                </div>
-                <div className="gradient-lavender rounded-lg p-3 text-center">
-                  <CheckCircle2 className="w-6 h-6 mx-auto mb-1 text-white/80" />
-                  <p className="text-xl font-bold text-white">{tasks.filter(t => t.status === 'completed').length}</p>
-                  <p className="text-xs text-white/80">Выполнено</p>
-                </div>
-                <div className="gradient-peach rounded-lg p-3 text-center">
-                  <Zap className="w-6 h-6 mx-auto mb-1 text-white/80" />
-                  <p className="text-xl font-bold text-white">{user?.points || 0}</p>
-                  <p className="text-xs text-white/80">Очков</p>
-                </div>
-              </div>
-
-              {/* Level */}
-              <Card className="border-pink/10">
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Star className="w-5 h-5 text-yellow-500" />
-                    <span className="font-semibold">Уровень {user?.level || 1}</span>
-                  </div>
-                  <Progress value={levelProgress} className="h-2" />
-                  <p className="text-xs text-muted-foreground mt-2 text-right">{user?.points || 0} очков</p>
-                </CardContent>
-              </Card>
-
-              {/* Achievements */}
-              <Card className="border-pink/10">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Достижения</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {achievements.map((a, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      <span>{a.unlocked ? '✅' : '🔒'}</span>
-                      <span className="flex-1">{a.name}</span>
-                      <span className="text-muted-foreground">+{a.points}</span>
+              <div className="space-y-4 pr-2 pb-4">
+                {/* Level Header */}
+                <Card className="gradient-full border-0 overflow-hidden">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
+                      <Trophy className="w-8 h-8 text-white" />
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Уровень {user?.level || 1}</h3>
+                    <div className="max-w-xs mx-auto">
+                      <Progress value={levelProgress} className="h-3 bg-white/20" />
+                      <p className="text-white/80 text-sm mt-2">{user?.points || 0} очков</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Stats */}
+                <Card className="border-pink/10">
+                  <CardHeader>
+                    <CardTitle>Статистика</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="gradient-pink rounded-lg p-3 text-center">
+                        <PinIcon className="w-6 h-6 mx-auto mb-1 text-white/80" />
+                        <p className="text-xl font-bold text-white">{pins.length}</p>
+                        <p className="text-xs text-white/80">Пинов</p>
+                      </div>
+                      <div className="gradient-lavender rounded-lg p-3 text-center">
+                        <CheckCircle2 className="w-6 h-6 mx-auto mb-1 text-white/80" />
+                        <p className="text-xl font-bold text-white">{tasks.filter(t => t.status === 'completed').length}</p>
+                        <p className="text-xs text-white/80">Выполнено</p>
+                      </div>
+                      <div className="gradient-peach rounded-lg p-3 text-center">
+                        <Zap className="w-6 h-6 mx-auto mb-1 text-white/80" />
+                        <p className="text-xl font-bold text-white">{user?.points || 0}</p>
+                        <p className="text-xs text-white/80">Очков</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Achievements */}
+                <Card className="border-pink/10">
+                  <CardHeader>
+                    <CardTitle>Достижения</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {achievements.map((a, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${a.unlocked ? 'gradient-pink' : 'bg-muted'}`}>
+                            {achievementIcons[a.icon] || <Star className={`w-5 h-5 ${a.unlocked ? 'text-white' : 'text-muted-foreground'}`} />}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{a.name}</p>
+                            <p className="text-xs text-muted-foreground">{a.description}</p>
+                          </div>
+                          <Badge variant={a.unlocked ? 'default' : 'secondary'} className={a.unlocked ? 'gradient-pink border-0' : ''}>
+                            +{a.points}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </ScrollArea>
           </TabsContent>
 
