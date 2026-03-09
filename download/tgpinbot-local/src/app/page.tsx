@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore, type Pin, type Task, type Achievement } from '@/lib/store'
-import { notificationManager } from '@/lib/notifications'
 import {
   Pin as PinIcon,
   CheckCircle2,
@@ -142,14 +142,8 @@ export default function PinterestApp() {
   useEffect(() => {
     const initApp = async () => {
       try {
-        // Get or create user ID from localStorage for persistence
-        let telegramId = localStorage.getItem('pinterest_user_id')
-        if (!telegramId) {
-          telegramId = 'user_' + Math.random().toString(36).substring(2, 15)
-          localStorage.setItem('pinterest_user_id', telegramId)
-        }
-
         // Get or create user
+        const telegramId = 'demo_user_' + Date.now()
         const userRes = await fetch(`/api/user?telegramId=${telegramId}`)
         const userData = await userRes.json()
         setUser(userData)
@@ -183,39 +177,6 @@ export default function PinterestApp() {
 
     initApp()
   }, [])
-
-  // Check for reminders every 30 seconds
-  useEffect(() => {
-    if (!user) return
-
-    const checkReminders = async () => {
-      try {
-        const res = await fetch(`/api/reminders?userId=${user.id}`)
-        const data = await res.json()
-        
-        if (data.reminders && data.reminders.length > 0) {
-          for (const reminder of data.reminders) {
-            await notificationManager.sendTaskReminder({
-              title: reminder.title,
-              description: reminder.description,
-              category: reminder.category
-            })
-          }
-        }
-      } catch (error) {
-        console.error('Error checking reminders:', error)
-      }
-    }
-
-    // Request notification permission on load
-    notificationManager.requestPermission()
-
-    // Check immediately and then every 30 seconds
-    checkReminders()
-    const interval = setInterval(checkReminders, 30000)
-
-    return () => clearInterval(interval)
-  }, [user])
 
   // Calculate level progress
   useEffect(() => {
@@ -397,9 +358,9 @@ export default function PinterestApp() {
   }
 
   return (
-    <div className="min-h-screen gradient-pink">
+    <div className="h-dvh overflow-hidden gradient-pink flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b border-pink/20">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-pink/20 shrink-0">
         <div className="max-w-lg mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -445,43 +406,44 @@ export default function PinterestApp() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-lg mx-auto px-4 py-4 pb-8">
-        <Tabs defaultValue="pins" className="w-full">
-          <TabsList className="grid grid-cols-4 w-full bg-white/70 border border-pink/10 rounded-lg">
-            <TabsTrigger value="pins" className="tabs-trigger-fix data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg transition-all">
+      <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col">
+        <Tabs defaultValue="pins" className="w-full flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid grid-cols-4 w-full bg-white/50 border border-pink/10 shrink-0">
+            <TabsTrigger value="pins" className="data-[state=active]:gradient-pink data-[state=active]:text-white">
               <PinIcon className="w-4 h-4 mr-1" />
               Пины
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="tabs-trigger-fix data-[state=active]:bg-lavender data-[state=active]:text-white rounded-lg transition-all">
+            <TabsTrigger value="tasks" className="data-[state=active]:gradient-lavender data-[state=active]:text-white">
               <ListTodo className="w-4 h-4 mr-1" />
               Задачи
             </TabsTrigger>
-            <TabsTrigger value="progress" className="tabs-trigger-fix data-[state=active]:bg-peach data-[state=active]:text-white rounded-lg transition-all">
+            <TabsTrigger value="progress" className="data-[state=active]:gradient-peach data-[state=active]:text-white">
               <Trophy className="w-4 h-4 mr-1" />
               Прогресс
             </TabsTrigger>
-            <TabsTrigger value="premium" className="tabs-trigger-fix data-[state=active]:gradient-full data-[state=active]:text-white rounded-lg transition-all">
+            <TabsTrigger value="premium" className="data-[state=active]:gradient-full data-[state=active]:text-white">
               <Diamond className="w-4 h-4 mr-1" />
               Премиум
             </TabsTrigger>
           </TabsList>
 
           {/* Pins Tab */}
-          <TabsContent value="pins" className="mt-4">
-            <div className="flex items-center justify-between mb-4">
+          <TabsContent value="pins" className="mt-4 flex-1 overflow-hidden data-[state=inactive]:hidden">
+            <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="text-lg font-semibold">Мои пины</h2>
               <Button
                 onClick={() => setShowAddPin(true)}
                 size="sm"
-                className="btn-fix gradient-pink text-white border-0 shadow-soft"
+                className="gradient-pink text-white border-0 shadow-soft"
               >
                 <Plus className="w-4 h-4 mr-1" />
                 Добавить
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              {pins.length === 0 ? (
+            <ScrollArea className="flex-1">
+              <div className="grid grid-cols-2 gap-3 pr-2 pb-4">
+                {pins.length === 0 ? (
                   <div className="col-span-2 text-center py-12">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full gradient-lavender flex items-center justify-center">
                       <PinIcon className="w-8 h-8 text-white" />
@@ -525,32 +487,34 @@ export default function PinterestApp() {
                   </Card>
                 )))}
               </div>
+            </ScrollArea>
           </TabsContent>
 
           {/* Tasks Tab */}
-          <TabsContent value="tasks" className="mt-4">
-            <div className="flex items-center justify-between mb-4">
+          <TabsContent value="tasks" className="mt-4 flex-1 overflow-hidden data-[state=inactive]:hidden">
+            <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="text-lg font-semibold">Мои задачи</h2>
               <Button
                 onClick={() => setShowAddTask(true)}
                 size="sm"
-                className="btn-fix gradient-lavender text-white border-0 shadow-soft"
+                className="gradient-lavender text-white border-0 shadow-soft"
               >
                 <Plus className="w-4 h-4 mr-1" />
                 Добавить
               </Button>
             </div>
 
-            <div className="space-y-3">
-              {tasks.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full gradient-pink flex items-center justify-center">
-                    <ListTodo className="w-8 h-8 text-white" />
-                  </div>
-                  <p className="text-muted-foreground mb-4">Нет задач</p>
-                  <p className="text-sm text-muted-foreground/70">
-                    Создайте первую задачу или добавьте её из сохранённого пина
-                  </p>
+            <ScrollArea className="flex-1">
+              <div className="space-y-3 pr-2 pb-4">
+                {tasks.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full gradient-pink flex items-center justify-center">
+                      <ListTodo className="w-8 h-8 text-white" />
+                    </div>
+                    <p className="text-muted-foreground mb-4">Нет задач</p>
+                    <p className="text-sm text-muted-foreground/70">
+                      Создайте первую задачу или добавьте её из сохранённого пина
+                    </p>
                   </div>
                 ) : (
                   <>
@@ -645,132 +609,141 @@ export default function PinterestApp() {
                   </>
                 )}
               </div>
+            </ScrollArea>
           </TabsContent>
 
           {/* Progress Tab */}
-          <TabsContent value="progress" className="mt-4">
-            <div className="space-y-4">
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-3">
-                <Card className="gradient-pink border-0">
-                  <CardContent className="p-4 text-center">
-                    <PinIcon className="w-8 h-8 mx-auto mb-2 text-white/80" />
-                    <p className="text-2xl font-bold text-white">{pins.length}</p>
-                    <p className="text-sm text-white/80">Пинов</p>
+          <TabsContent value="progress" className="mt-4 flex-1 overflow-hidden data-[state=inactive]:hidden">
+            <ScrollArea className="flex-1">
+              <div className="space-y-4 pr-2 pb-4">
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Card className="gradient-pink border-0">
+                    <CardContent className="p-4 text-center">
+                      <PinIcon className="w-8 h-8 mx-auto mb-2 text-white/80" />
+                      <p className="text-2xl font-bold text-white">{pins.length}</p>
+                      <p className="text-sm text-white/80">Пинов</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="gradient-lavender border-0">
+                    <CardContent className="p-4 text-center">
+                      <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-white/80" />
+                      <p className="text-2xl font-bold text-white">
+                        {tasks.filter(t => t.status === 'completed').length}
+                      </p>
+                      <p className="text-sm text-white/80">Выполнено</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Achievements */}
+                <Card className="border-pink/10">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-primary" />
+                      Достижения
+                    </CardTitle>
+                    <CardDescription>
+                      Разблокировано: {achievements.filter(a => a.unlocked).length} из {achievements.length}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {achievements.map((achievement, index) => (
+                        <div
+                          key={achievement.id || `achievement-${index}`}
+                          className={`flex items-center gap-3 p-3 rounded-lg ${
+                            achievement.unlocked
+                              ? 'bg-primary/10 border border-primary/20'
+                              : 'bg-muted/50 opacity-60'
+                          }`}
+                        >
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            achievement.unlocked ? 'gradient-pink' : 'bg-muted'
+                          }`}>
+                            {achievementIcons[achievement.icon] || <Medal className="w-5 h-5" />}
+                            {!achievement.unlocked && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-xs font-bold text-muted-foreground">🔒</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{achievement.name}</p>
+                            <p className="text-xs text-muted-foreground">{achievement.description}</p>
+                          </div>
+                          <Badge variant="secondary" className="text-xs">
+                            +{achievement.points}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
-                <Card className="gradient-lavender border-0">
-                  <CardContent className="p-4 text-center">
-                    <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-white/80" />
-                    <p className="text-2xl font-bold text-white">
-                      {tasks.filter(t => t.status === 'completed').length}
-                    </p>
-                    <p className="text-sm text-white/80">Выполнено</p>
-                  </CardContent>
-                </Card>
-              </div>
 
-              {/* Achievements */}
-              <Card className="border-pink/10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-primary" />
-                    Достижения
-                  </CardTitle>
-                  <CardDescription>
-                    Разблокировано: {achievements.filter(a => a.unlocked).length} из {achievements.length}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {achievements.map((achievement, index) => (
-                      <div
-                        key={achievement.id || `achievement-${index}`}
-                        className={`flex items-center gap-3 p-3 rounded-lg ${
-                          achievement.unlocked
-                            ? 'bg-primary/10 border border-primary/20'
-                            : 'bg-muted/50 opacity-60'
-                        }`}
-                      >
-                        <div className={`relative w-10 h-10 rounded-full flex items-center justify-center ${
-                          achievement.unlocked ? 'gradient-pink' : 'bg-muted'
-                        }`}>
-                          {achievementIcons[achievement.icon] || <Medal className="w-5 h-5" />}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{achievement.name}</p>
-                          <p className="text-xs text-muted-foreground">{achievement.description}</p>
-                        </div>
-                        <Badge variant="secondary" className="text-xs">
-                          +{achievement.points}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Level progress */}
-              <Card className="border-pink/10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Star className="w-5 h-5 text-yellow-500" />
-                    Уровень {user?.level || 1}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <Progress value={levelProgress} className="h-3 bg-pink/20" />
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>{user?.points || 0} очков</span>
+                {/* Level progress */}
+                <Card className="border-pink/10">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Star className="w-5 h-5 text-yellow-500" />
+                      Уровень {user?.level || 1}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <Progress value={levelProgress} className="h-3 bg-pink/20" />
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>{user?.points || 0} очков</span>
                         <span>До уровня {(user?.level || 1) + 1}: {((user?.level || 1) + 1) * 100} очков</span>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+            </ScrollArea>
           </TabsContent>
 
           {/* Premium Tab */}
-          <TabsContent value="premium" className="mt-4">
-            <div className="space-y-4">
-              <Card className="gradient-full border-0 overflow-hidden">
-                <CardContent className="p-6 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
-                    <Crown className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-white mb-2">Pinterest Pro</h3>
-                  <p className="text-white/80 text-sm mb-4">
-                    Раскройте полный потенциал вашего вдохновения
-                  </p>
-                  <Badge className="bg-white/20 text-white border-0 mb-4">
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    Премиум подписка
-                  </Badge>
-                </CardContent>
-              </Card>
+          <TabsContent value="premium" className="mt-4 flex-1 overflow-hidden data-[state=inactive]:hidden">
+            <ScrollArea className="flex-1">
+              <div className="space-y-4 pr-2 pb-4">
+                <Card className="gradient-full border-0 overflow-hidden">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
+                      <Crown className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Pinterest Pro</h3>
+                    <p className="text-white/80 text-sm mb-4">
+                      Раскройте полный потенциал вашего вдохновения
+                    </p>
+                    <Badge className="bg-white/20 text-white border-0 mb-4">
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      Премиум подписка
+                    </Badge>
+                  </CardContent>
+                </Card>
 
-              <Card className="border-pink/10">
-                <CardHeader>
-                  <CardTitle>Преимущества Premium</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { icon: <Zap className="w-5 h-5" />, title: 'Безлимитные пины', desc: 'Сохраняйте сколько угодно идей' },
-                      { icon: <Sparkles className="w-5 h-5" />, title: 'AI-категоризация', desc: 'Умная сортировка ваших пинов' },
-                      { icon: <Target className="w-5 h-5" />, title: 'Продвинутые задачи', desc: 'Создавайте подзадачи и напоминания' },
-                      { icon: <Trophy className="w-5 h-5" />, title: 'Эксклюзивные достижения', desc: 'Особые награды для Premium' },
-                      { icon: <Gift className="w-5 h-5" />, title: 'Бонусные очки', desc: 'Двойные очки за каждое действие' }
-                    ].map((feature, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full gradient-pink flex items-center justify-center text-white">
-                          {feature.icon}
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{feature.title}</p>
-                          <p className="text-xs text-muted-foreground">{feature.desc}</p>
-                        </div>
+                <Card className="border-pink/10">
+                  <CardHeader>
+                    <CardTitle>Преимущества Premium</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {[
+                        { icon: <Zap className="w-5 h-5" />, title: 'Безлимитные пины', desc: 'Сохраняйте сколько угодно идей' },
+                        { icon: <Sparkles className="w-5 h-5" />, title: 'AI-категоризация', desc: 'Умная сортировка ваших пинов' },
+                        { icon: <Target className="w-5 h-5" />, title: 'Продвинутые задачи', desc: 'Создавайте подзадачи и напоминания' },
+                        { icon: <Trophy className="w-5 h-5" />, title: 'Эксклюзивные достижения', desc: 'Особые награды для Premium' },
+                        { icon: <Gift className="w-5 h-5" />, title: 'Бонусные очки', desc: 'Двойные очки за каждое действие' }
+                      ].map((feature, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full gradient-pink flex items-center justify-center text-white">
+                            {feature.icon}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{feature.title}</p>
+                            <p className="text-xs text-muted-foreground">{feature.desc}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -806,6 +779,7 @@ export default function PinterestApp() {
                   </CardContent>
                 </Card>
               </div>
+            </ScrollArea>
           </TabsContent>
         </Tabs>
       </main>
