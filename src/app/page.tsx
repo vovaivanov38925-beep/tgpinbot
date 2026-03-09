@@ -617,28 +617,52 @@ export default function PinterestApp() {
             <ScrollArea className="flex-1 h-0">
               <div className="space-y-4 pr-2 pb-4">
                 {/* Stats */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <Card className="gradient-pink border-0">
-                    <CardContent className="p-4 text-center">
-                      <PinIcon className="w-8 h-8 mx-auto mb-2 text-white/80" />
-                      <p className="text-2xl font-bold text-white">{pins.length}</p>
-                      <p className="text-sm text-white/80">Пинов</p>
+                    <CardContent className="p-3 text-center">
+                      <PinIcon className="w-6 h-6 mx-auto mb-1 text-white/80" />
+                      <p className="text-xl font-bold text-white">{pins.length}</p>
+                      <p className="text-xs text-white/80">Пинов</p>
                     </CardContent>
                   </Card>
                   <Card className="gradient-lavender border-0">
-                    <CardContent className="p-4 text-center">
-                      <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-white/80" />
-                      <p className="text-2xl font-bold text-white">
+                    <CardContent className="p-3 text-center">
+                      <CheckCircle2 className="w-6 h-6 mx-auto mb-1 text-white/80" />
+                      <p className="text-xl font-bold text-white">
                         {tasks.filter(t => t.status === 'completed').length}
                       </p>
-                      <p className="text-sm text-white/80">Выполнено</p>
+                      <p className="text-xs text-white/80">Выполнено</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="gradient-peach border-0">
+                    <CardContent className="p-3 text-center">
+                      <Zap className="w-6 h-6 mx-auto mb-1 text-white/80" />
+                      <p className="text-xl font-bold text-white">{user?.points || 0}</p>
+                      <p className="text-xs text-white/80">Очков</p>
                     </CardContent>
                   </Card>
                 </div>
 
+                {/* Level progress */}
+                <Card className="border-pink/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2">
+                      <Star className="w-5 h-5 text-yellow-500" />
+                      Уровень {user?.level || 1}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Progress value={levelProgress} className="h-3 bg-pink/20" />
+                    <div className="flex justify-between text-sm text-muted-foreground mt-2">
+                      <span>{user?.points || 0} очков</span>
+                      <span>До уровня {(user?.level || 1) + 1}: {((user?.level || 1) + 1) * 100}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Achievements */}
                 <Card className="border-pink/10">
-                  <CardHeader>
+                  <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2">
                       <Trophy className="w-5 h-5 text-primary" />
                       Достижения
@@ -648,54 +672,30 @@ export default function PinterestApp() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {achievements.map((achievement, index) => (
                         <div
                           key={achievement.id || `achievement-${index}`}
-                          className={`flex items-center gap-3 p-3 rounded-lg ${
+                          className={`flex items-center gap-3 p-2 rounded-lg ${
                             achievement.unlocked
                               ? 'bg-primary/10 border border-primary/20'
-                              : 'bg-muted/50 opacity-60'
+                              : 'bg-muted/50 opacity-50'
                           }`}
                         >
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            achievement.unlocked ? 'gradient-pink' : 'bg-muted'
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm ${
+                            achievement.unlocked ? 'gradient-pink' : 'bg-gray-300'
                           }`}>
-                            {achievementIcons[achievement.icon] || <Medal className="w-5 h-5" />}
-                            {!achievement.unlocked && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-xs font-bold text-muted-foreground">🔒</span>
-                              </div>
-                            )}
+                            {achievement.unlocked ? (achievementIcons[achievement.icon] || '🏆') : '🔒'}
                           </div>
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm">{achievement.name}</p>
-                            <p className="text-xs text-muted-foreground">{achievement.description}</p>
+                            <p className="text-xs text-muted-foreground truncate">{achievement.description}</p>
                           </div>
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs shrink-0">
                             +{achievement.points}
                           </Badge>
                         </div>
                       ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Level progress */}
-                <Card className="border-pink/10">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Star className="w-5 h-5 text-yellow-500" />
-                      Уровень {user?.level || 1}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <Progress value={levelProgress} className="h-3 bg-pink/20" />
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>{user?.points || 0} очков</span>
-                        <span>До уровня {(user?.level || 1) + 1}: {((user?.level || 1) + 1) * 100} очков</span>
-                      </div>
                     </div>
                   </CardContent>
                 </Card>
