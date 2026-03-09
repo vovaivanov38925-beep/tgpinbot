@@ -614,8 +614,8 @@ export default function PinterestApp() {
 
           {/* Progress Tab */}
           <TabsContent value="progress" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-            <ScrollArea className="flex-1 h-0">
-              <div className="space-y-4 pr-2 pb-20">
+            <ScrollArea className="flex-1">
+              <div className="space-y-4 pr-2 pb-32">
               {/* Stats */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="gradient-pink rounded-lg p-3 text-center">
