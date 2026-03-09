@@ -142,9 +142,29 @@ export default function PinterestApp() {
   useEffect(() => {
     const initApp = async () => {
       try {
-        // Get or create user
-        const telegramId = 'demo_user_' + Date.now()
-        const userRes = await fetch(`/api/user?telegramId=${telegramId}`)
+        // Get Telegram user data
+        let telegramId = 'demo_' + Date.now()
+        let firstName = 'Гость'
+        let lastName = ''
+        let username = null
+        let photoUrl = null
+
+        // Check if running in Telegram
+        if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
+          const tgUser = (window as any).Telegram.WebApp.initDataUnsafe.user
+          telegramId = String(tgUser.id)
+          firstName = tgUser.first_name || 'Пользователь'
+          lastName = tgUser.last_name || ''
+          username = tgUser.username || null
+          photoUrl = tgUser.photo_url || null
+        }
+
+        // Create or get user
+        const userRes = await fetch('/api/user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telegramId, firstName, lastName, username, photoUrl })
+        })
         const userData = await userRes.json()
         setUser(userData)
 
