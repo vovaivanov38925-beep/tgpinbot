@@ -156,21 +156,21 @@
   background: oklch(0.7 0.15 350);
 }
 
-/* Gradient backgrounds - vibrant and beautiful */
+/* Gradient backgrounds - soft and beautiful */
 .gradient-pink {
-  background: linear-gradient(135deg, #ec4899, #f472b6);
+  background: linear-gradient(135deg, #f9a8d4, #f472b6);
 }
 
 .gradient-lavender {
-  background: linear-gradient(135deg, #a855f7, #c084fc);
+  background: linear-gradient(135deg, #c4b5fd, #a78bfa);
 }
 
 .gradient-peach {
-  background: linear-gradient(135deg, #f97316, #fb923c);
+  background: linear-gradient(135deg, #fdba74, #fb923c);
 }
 
 .gradient-full {
-  background: linear-gradient(135deg, #ec4899, #a855f7, #f97316);
+  background: linear-gradient(135deg, #f472b6, #a78bfa, #fb923c);
 }
 
 /* Soft shadows */
