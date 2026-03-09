@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { db as prisma } from '@/lib/db'
 import { verifyPassword, generateToken, setAuthCookie, logAdminAction, ensureDefaultAdmin } from '@/lib/admin-auth'
 
 export async function POST(request: NextRequest) {

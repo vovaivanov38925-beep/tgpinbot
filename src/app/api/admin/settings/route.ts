@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { db as prisma } from '@/lib/db'
 import { getCurrentAdmin, logAdminAction, hashPassword } from '@/lib/admin-auth'
 
 // Get app settings
