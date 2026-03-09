@@ -42,6 +42,16 @@ export default function RootLayout({
     <html lang="ru" suppressHydrationWarning>
       <head>
         <script src="https://telegram.org/js/telegram-web-app.js" async></script>
+        <script dangerouslySetInnerHTML={{ __html: `
+          if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+            // Отключить debug режим
+            if (window.Telegram.WebApp.disableClosingConfirmation) {
+              window.Telegram.WebApp.disableClosingConfirmation();
+            }
+          }
+        `}} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}

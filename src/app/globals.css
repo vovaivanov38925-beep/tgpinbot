@@ -218,3 +218,13 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Hide Next.js dev indicator and Telegram debug elements */
+.__next_dev_indicator,
+[next-dev-indicator],
+[data-nextjs-indicator],
+body > div:last-child[style*="position: fixed"][style*="bottom: 0"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
