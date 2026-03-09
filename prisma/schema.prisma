@@ -99,3 +99,94 @@ model UserAchievement {
   @@unique([userId, achievementId])
   @@map("user_achievements")
 }
+
+// Admin Panel Models
+model Admin {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  email        String?  @unique
+  role         String   @default("admin") // admin, superadmin
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  logs         AdminLog[]
+  
+  @@map("admins")
+}
+
+model AdminLog {
+  id          String   @id @default(cuid())
+  adminId     String
+  action      String   // login, logout, create_user, delete_pin, etc.
+  entityType  String?  // user, pin, task, payment
+  entityId    String?
+  details     String?  // JSON with additional info
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  admin       Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("admin_logs")
+}
+
+model PaymentSettings {
+  id                    String   @id @default(cuid())
+  
+  // Telegram Stars
+  starsEnabled          Boolean  @default(false)
+  starsMonthPrice       Int      @default(299)
+  starsYearPrice        Int      @default(1999)
+  starsLifetimePrice    Int      @default(4999)
+  
+  // YooKassa
+  yookassaEnabled       Boolean  @default(false)
+  yookassaShopId        String?
+  yookassaSecretKey     String?
+  yookassaMonthPrice    Int      @default(299)
+  yookassaYearPrice     Int      @default(1999)
+  yookassaLifetimePrice Int      @default(4999)
+  
+  // General
+  currency              String   @default("RUB")
+  trialDays             Int      @default(7)
+  
+  updatedAt             DateTime @updatedAt
+  
+  @@map("payment_settings")
+}
+
+model PaymentTransaction {
+  id              String   @id @default(cuid())
+  userId          String
+  amount          Int
+  currency        String   @default("RUB")
+  status          String   @default("pending") // pending, completed, failed, refunded
+  provider        String   // yookassa, telegram_stars
+  providerTxId    String?  @unique // Transaction ID from provider
+  planType        String   // month, year, lifetime
+  metadata        String?  // JSON
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("payment_transactions")
+}
+
+model AppSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+  
+  @@map("app_settings")
+}
