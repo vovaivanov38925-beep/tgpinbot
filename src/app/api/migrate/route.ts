@@ -3,6 +3,9 @@ import { db } from '@/lib/db'
 
 export async function GET() {
   try {
+    // Enable pgcrypto extension for gen_random_uuid()
+    await db.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`)
+
     // Create tables using raw SQL
     await db.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS users (
