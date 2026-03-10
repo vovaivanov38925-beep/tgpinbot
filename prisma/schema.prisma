@@ -11,18 +11,19 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  telegramId    String   @unique
-  username      String?
-  firstName     String?
-  lastName      String?
-  photoUrl      String?
-  points        Int      @default(0)
-  level         Int      @default(1)
-  isPremium     Boolean  @default(false)
-  premiumExpiry DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String   @id @default(cuid())
+  telegramId     String   @unique
+  telegramChatId String?  @unique // Для отправки уведомлений ботом
+  username       String?
+  firstName      String?
+  lastName       String?
+  photoUrl       String?
+  points         Int      @default(0)
+  level          Int      @default(1)
+  isPremium      Boolean  @default(false)
+  premiumExpiry  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
   
   pins               Pin[]
   tasks              Task[]

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { sendNewPinNotification } from '@/lib/telegram'
 import { logger } from '@/lib/logger'
 
 // GET - Get all pins for a user
@@ -73,6 +74,24 @@ export async function POST(request: NextRequest) {
         points: { increment: pin.points }
       }
     })
+
+    // Send notification about new pin
+    const user = await db.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (user?.telegramChatId) {
+      try {
+        await sendNewPinNotification(user.telegramChatId, title || 'Новый пин', category)
+        await logger.info('telegram', 'Pin notification sent', {
+          pinId: pin.id,
+          chatId: user.telegramChatId,
+          title
+        })
+      } catch (error) {
+        console.error('Failed to send pin notification:', error)
+      }
+    }
 
     // Log successful pin creation
     await logger.info('api', 'Pin created', { pinId: pin.id, category, userId })
