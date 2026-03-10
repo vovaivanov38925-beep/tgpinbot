@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  
   try {
     const body = await request.json()
     const { url } = body
@@ -17,6 +20,7 @@ export async function POST(request: NextRequest) {
                           url.includes('/originals/')
 
     if (isDirectImage) {
+      await logger.info('extract', 'Direct image URL detected', { url })
       return NextResponse.json({
         imageUrl: url,
         title: null,
@@ -27,6 +31,7 @@ export async function POST(request: NextRequest) {
 
     // Not Pinterest URL - just return as-is
     if (!url.includes('pinterest') && !url.includes('pin.')) {
+      await logger.warning('extract', 'Non-Pinterest URL provided', { url })
       return NextResponse.json({ 
         imageUrl: url,
         title: null,
@@ -121,6 +126,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (e) {
       console.log('Direct HTML parsing failed:', e)
+      await logger.warning('extract', 'HTML parsing failed', { url, error: String(e) })
     }
 
     // Method 1: Use Microlink API (free tier, no API key needed)
@@ -239,7 +245,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const duration = Date.now() - startTime
+
     if (!imageUrl) {
+      await logger.error('extract', 'Failed to extract image from Pinterest URL', { url, duration })
       return NextResponse.json({ 
         error: 'Не удалось извлечь изображение. Попробуйте другую ссылку.',
         imageUrl: null,
@@ -272,6 +281,13 @@ export async function POST(request: NextRequest) {
       finalTitle = null
     }
 
+    await logger.info('extract', 'Successfully extracted Pinterest image', { 
+      url, 
+      imageUrl, 
+      title: finalTitle, 
+      duration 
+    })
+
     return NextResponse.json({ 
       imageUrl, 
       title: finalTitle, 
@@ -280,7 +296,9 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
+    const duration = Date.now() - startTime
     console.error('Extract error:', error)
+    await logger.error('extract', 'Extract error', { error: String(error), duration })
     return NextResponse.json({ 
       error: 'Ошибка извлечения',
       imageUrl: null,
