@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendNewPinNotification } from '@/lib/telegram'
+import { processNotifications, POINTS } from '@/lib/notifications'
 import { logger } from '@/lib/logger'
 
 // GET - Get all pins for a user
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
     const category = searchParams.get('category')
-    
+
     if (!userId) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
     }
@@ -22,11 +22,11 @@ export async function GET(request: NextRequest) {
     const pins = await db.pin.findMany({
       where,
       include: {
-        tasks: true
+        tasks: true,
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     })
 
     return NextResponse.json(pins)
@@ -44,18 +44,30 @@ export async function POST(request: NextRequest) {
     const { userId, imageUrl, title, description, category, sourceUrl } = body
 
     if (!userId || !imageUrl) {
-      return NextResponse.json({ error: 'User ID and image URL are required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'User ID and image URL are required' },
+        { status: 400 }
+      )
     }
 
-    // Проверяем что imageUrl - это ссылка на изображение, а не на страницу Pinterest
-    const isPinterestPage = imageUrl.includes('pinterest.com/pin/') && !imageUrl.includes('pinimg.com')
+    // Check that imageUrl is an image link, not a Pinterest page
+    const isPinterestPage =
+      imageUrl.includes('pinterest.com/pin/') && !imageUrl.includes('pinimg.com')
     if (isPinterestPage) {
-      await logger.warning('api', 'Invalid Pinterest URL used as image', { imageUrl, userId })
-      return NextResponse.json({ 
-        error: 'Неверная ссылка. Используйте прямую ссылку на изображение (например, i.pinimg.com/...)' 
-      }, { status: 400 })
+      await logger.warning('api', 'Invalid Pinterest URL used as image', {
+        imageUrl,
+        userId,
+      })
+      return NextResponse.json(
+        {
+          error:
+            'Неверная ссылка. Используйте прямую ссылку на изображение (например, i.pinimg.com/...)',
+        },
+        { status: 400 }
+      )
     }
 
+    // Create pin
     const pin = await db.pin.create({
       data: {
         userId,
@@ -63,40 +75,35 @@ export async function POST(request: NextRequest) {
         title: title || null,
         description: description || null,
         category: category || null,
-        sourceUrl: sourceUrl || null
-      }
+        sourceUrl: sourceUrl || null,
+      },
     })
 
-    // Update user points
-    await db.user.update({
-      where: { id: userId },
-      data: {
-        points: { increment: pin.points }
-      }
+    // Process notifications (points, level up, achievements)
+    const notificationResult = await processNotifications(userId, 'pin_created', {
+      pinTitle: title || 'Новый пин',
+      pinCategory: category,
+      points: POINTS.PIN_CREATED,
     })
-
-    // Send notification about new pin
-    const user = await db.user.findUnique({
-      where: { id: userId },
-    })
-
-    if (user?.telegramChatId) {
-      try {
-        await sendNewPinNotification(user.telegramChatId, title || 'Новый пин', category)
-        await logger.info('telegram', 'Pin notification sent', {
-          pinId: pin.id,
-          chatId: user.telegramChatId,
-          title
-        })
-      } catch (error) {
-        console.error('Failed to send pin notification:', error)
-      }
-    }
 
     // Log successful pin creation
-    await logger.info('api', 'Pin created', { pinId: pin.id, category, userId })
+    await logger.info('api', 'Pin created', {
+      pinId: pin.id,
+      category,
+      userId,
+      pointsEarned: notificationResult.points,
+      levelUp: notificationResult.levelUp,
+      achievements: notificationResult.newAchievements.length,
+    })
 
-    return NextResponse.json(pin)
+    // Return pin with notification info
+    return NextResponse.json({
+      ...pin,
+      points: notificationResult.points,
+      levelUp: notificationResult.levelUp,
+      newLevel: notificationResult.newLevel,
+      newAchievements: notificationResult.newAchievements,
+    })
   } catch (error) {
     console.error('Error creating pin:', error)
     await logger.error('api', 'Error creating pin', { error: String(error) })
@@ -116,7 +123,7 @@ export async function PATCH(request: NextRequest) {
 
     const pin = await db.pin.update({
       where: { id },
-      data: updateData
+      data: updateData,
     })
 
     return NextResponse.json(pin)
@@ -138,7 +145,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.pin.delete({
-      where: { id }
+      where: { id },
     })
 
     await logger.info('api', 'Pin deleted', { pinId: id })

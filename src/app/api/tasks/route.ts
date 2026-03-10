@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendTaskReminder, sendTaskCompletedNotification } from '@/lib/telegram'
+import { processNotifications, POINTS, getPremiumReminderTimes, sendPremiumReminder } from '@/lib/notifications'
+import { sendTaskReminder } from '@/lib/telegram'
 import { logger } from '@/lib/logger'
 
 // GET - Get all tasks for a user
@@ -26,11 +27,11 @@ export async function GET(request: NextRequest) {
     const tasks = await db.task.findMany({
       where,
       include: {
-        pin: true
+        pin: true,
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     })
 
     return NextResponse.json(tasks)
@@ -45,11 +46,29 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userId, pinId, title, description, category, priority, dueDate, reminderTime } = body
+    const {
+      userId,
+      pinId,
+      title,
+      description,
+      category,
+      priority,
+      dueDate,
+      reminderTime,
+    } = body
 
     if (!userId || !title) {
-      return NextResponse.json({ error: 'User ID and title are required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'User ID and title are required' },
+        { status: 400 }
+      )
     }
+
+    // Calculate points based on priority
+    const taskPoints =
+      priority === 'high'
+        ? POINTS.TASK_COMPLETED_HIGH_PRIORITY
+        : POINTS.TASK_COMPLETED_BASE
 
     const task = await db.task.create({
       data: {
@@ -61,33 +80,49 @@ export async function POST(request: NextRequest) {
         priority: priority || 'medium',
         dueDate: dueDate ? new Date(dueDate) : null,
         reminderTime: reminderTime ? new Date(reminderTime) : null,
-        reminderSent: false
+        reminderSent: false,
+        points: taskPoints,
       },
     })
 
-    // Get user for notification about reminder
-    if (reminderTime) {
-      const user = await db.user.findUnique({
-        where: { id: userId },
-      })
+    // Get user for notification
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      include: { notificationSettings: true },
+    })
 
-      if (user?.telegramChatId) {
-        try {
+    // Send immediate confirmation if reminder is set
+    if (reminderTime && user?.telegramChatId) {
+      try {
+        const settings = user.notificationSettings
+        if (settings?.taskReminders) {
           await sendTaskReminder(
             user.telegramChatId,
             title,
             description,
             dueDate ? new Date(dueDate) : null
           )
-          await logger.info('telegram', 'Task reminder notification scheduled', {
+          await logger.info('telegram', 'Task reminder notification sent', {
             taskId: task.id,
             chatId: user.telegramChatId,
             title: task.title,
-            reminderTime: reminderTime
           })
-        } catch (error) {
-          console.error('Failed to send reminder notification:', error)
         }
+      } catch (error) {
+        console.error('Failed to send reminder notification:', error)
+      }
+    }
+
+    // For premium users, set up additional reminders
+    if (user?.isPremium && dueDate) {
+      const premiumReminders = await getPremiumReminderTimes(userId, new Date(dueDate))
+
+      // Log premium reminders scheduled
+      if (premiumReminders.length > 0) {
+        await logger.info('api', 'Premium reminders scheduled', {
+          taskId: task.id,
+          reminders: premiumReminders.map((r) => r.type),
+        })
       }
     }
 
@@ -95,7 +130,8 @@ export async function POST(request: NextRequest) {
       taskId: task.id,
       category,
       userId,
-      reminderTime
+      reminderTime,
+      isPremium: user?.isPremium,
     })
 
     return NextResponse.json(task)
@@ -116,45 +152,53 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Task ID is required' }, { status: 400 })
     }
 
-    // If task is being completed, award points
+    // If task is being completed, award points and send notifications
     if (status === 'completed') {
-      const task = await db.task.findUnique({ where: { id } })
+      const task = await db.task.findUnique({
+        where: { id },
+        include: { user: true },
+      })
+
       if (task && task.status !== 'completed') {
-        await db.user.update({
-          where: { id: task.userId },
-          data: {
-            points: { increment: task.points }
+        // Process notifications (points, level up, achievements)
+        const notificationResult = await processNotifications(
+          task.userId,
+          'task_completed',
+          {
+            taskTitle: task.title,
+            taskPriority: task.priority,
+            points: task.points,
           }
+        )
+
+        // Update task with completion info
+        const updatedTask = await db.task.update({
+          where: { id },
+          data: { ...updateData, status: 'completed' },
         })
 
-        // Send notification about task completion
-        const user = await db.user.findUnique({
-          where: { id: task.userId },
+        await logger.info('api', 'Task completed', {
+          taskId: task.id,
+          userId: task.userId,
+          pointsEarned: notificationResult.points,
+          levelUp: notificationResult.levelUp,
+          achievements: notificationResult.newAchievements.length,
         })
 
-        if (user?.telegramChatId) {
-          try {
-            await sendTaskCompletedNotification(
-              user.telegramChatId,
-              task.title,
-              task.points
-            )
-            await logger.info('telegram', 'Task completed notification sent', {
-              taskId: task.id,
-              chatId: user.telegramChatId,
-              title: task.title,
-              points: task.points
-            })
-          } catch (error) {
-            console.error('Failed to send completion notification:', error)
-          }
-        }
+        // Return task with notification info
+        return NextResponse.json({
+          ...updatedTask,
+          pointsEarned: notificationResult.points,
+          levelUp: notificationResult.levelUp,
+          newLevel: notificationResult.newLevel,
+          newAchievements: notificationResult.newAchievements,
+        })
       }
     }
 
     const task = await db.task.update({
       where: { id },
-      data: { ...updateData, status: status || updateData.status }
+      data: { ...updateData, status: status || updateData.status },
     })
 
     return NextResponse.json(task)
@@ -176,10 +220,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.task.delete({
-      where: { id }
+      where: { id },
     })
 
-    await logger.info('api', 'Task deleted', { pinId: id })
+    await logger.info('api', 'Task deleted', { taskId: id })
 
     return NextResponse.json({ success: true })
   } catch (error) {
