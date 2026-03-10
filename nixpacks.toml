@@ -1,0 +1,7 @@
+[phases.setup]
+
+[phases.build]
+cmd = "prisma generate && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && cp -r prisma .next/standalone/"
+
+[start]
+cmd = "node .next/standalone/server.js"
