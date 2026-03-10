@@ -190,3 +190,22 @@ model AppSettings {
   
   @@map("app_settings")
 }
+
+model BotLog {
+  id          String   @id @default(cuid())
+  level       String   // info, warning, error, debug
+  source      String   // telegram, api, database, scheduler, payment
+  message     String
+  details     String?  // JSON with additional info
+  userId      String?
+  telegramId  String?
+  requestId   String?
+  duration    Int?     // milliseconds
+  createdAt   DateTime @default(now())
+  
+  @@index([level])
+  @@index([source])
+  @@index([createdAt])
+  @@index([telegramId])
+  @@map("bot_logs")
+}
