@@ -11,22 +11,18 @@ function hashPassword(password: string): string {
 export async function GET() {
   try {
     // Create admin
-    await db.admin.upsert({
-      where: { username: 'admin' },
-      update: {},
-      create: {
+    await db.admins.create({
+      data: {
         username: 'admin',
         passwordHash: hashPassword('admin123'),
         email: 'admin@example.com',
         role: 'superadmin'
       }
-    })
+    }).catch(() => {}) // Ignore if exists
 
     // Create payment settings
-    await db.paymentSettings.upsert({
-      where: { id: 'default' },
-      update: {},
-      create: {
+    await db.payment_settings.create({
+      data: {
         id: 'default',
         starsEnabled: false,
         starsMonthPrice: 299,
@@ -39,11 +35,11 @@ export async function GET() {
         currency: 'RUB',
         trialDays: 7
       }
-    })
+    }).catch(() => {}) // Ignore if exists
 
     // Delete existing achievements to remove duplicates
-    await db.userAchievement.deleteMany()
-    await db.achievement.deleteMany()
+    await db.user_achievements.deleteMany().catch(() => {})
+    await db.achievements.deleteMany().catch(() => {})
 
     const achievements = [
       { name: 'Первый шаг', description: 'Сохраните свой первый пин', icon: 'Pin', category: 'pins', requirement: 1, points: 10 },
@@ -57,7 +53,7 @@ export async function GET() {
     ]
 
     for (const a of achievements) {
-      await db.achievement.create({ data: a })
+      await db.achievements.create({ data: a })
     }
 
     return NextResponse.json({
