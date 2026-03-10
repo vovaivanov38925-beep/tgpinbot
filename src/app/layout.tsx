@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { TelegramProvider } from "@/components/TelegramProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,18 +45,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        {/* Telegram WebApp SDK - must load before app initializes */}
-        <Script
-          src="https://telegram.org/js/telegram-web-app.js"
-          strategy="beforeInteractive"
-          onLoad={() => {
-            if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
-              (window as any).Telegram.WebApp.ready();
-              (window as any).Telegram.WebApp.expand();
-            }
-          }}
-        />
-        {children}
+        <TelegramProvider>
+          {children}
+        </TelegramProvider>
         <Toaster />
       </body>
     </html>
