@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -40,22 +41,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <head>
-        <script src="https://telegram.org/js/telegram-web-app.js" async></script>
-        <script dangerouslySetInnerHTML={{ __html: `
-          if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-            // Отключить debug режим
-            if (window.Telegram.WebApp.disableClosingConfirmation) {
-              window.Telegram.WebApp.disableClosingConfirmation();
-            }
-          }
-        `}} />
-      </head>
+      <head />
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
+        {/* Telegram WebApp SDK - must load before app initializes */}
+        <Script
+          src="https://telegram.org/js/telegram-web-app.js"
+          strategy="beforeInteractive"
+          onLoad={() => {
+            if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+              (window as any).Telegram.WebApp.ready();
+              (window as any).Telegram.WebApp.expand();
+            }
+          }}
+        />
         {children}
         <Toaster />
       </body>

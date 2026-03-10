@@ -142,21 +142,61 @@ export default function PinterestApp() {
   useEffect(() => {
     const initApp = async () => {
       try {
+        // Wait for Telegram WebApp to be ready
+        const waitForTelegram = (): Promise<void> => {
+          return new Promise((resolve) => {
+            if (typeof window === 'undefined') {
+              resolve()
+              return
+            }
+
+            // Check if already loaded
+            if ((window as any).Telegram?.WebApp) {
+              resolve()
+              return
+            }
+
+            // Wait for script to load
+            let attempts = 0
+            const maxAttempts = 50 // 5 seconds max
+            const interval = setInterval(() => {
+              attempts++
+              if ((window as any).Telegram?.WebApp) {
+                clearInterval(interval)
+                resolve()
+              } else if (attempts >= maxAttempts) {
+                clearInterval(interval)
+                resolve()
+              }
+            }, 100)
+          })
+        }
+
+        await waitForTelegram()
+
         // Get Telegram user data
-        let telegramId = 'demo_user' // Fixed demo ID for testing outside Telegram
+        let telegramId = 'demo_user'
         let firstName = 'Гость'
         let lastName = ''
         let username = null
         let photoUrl = null
 
         // Check if running in Telegram
-        if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
-          const tgUser = (window as any).Telegram.WebApp.initDataUnsafe.user
+        const tg = (window as any).Telegram
+        console.log('Telegram WebApp:', tg?.WebApp)
+        console.log('initDataUnsafe:', tg?.WebApp?.initDataUnsafe)
+
+        if (tg?.WebApp?.initDataUnsafe?.user) {
+          const tgUser = tg.WebApp.initDataUnsafe.user
+          console.log('Telegram user:', tgUser)
           telegramId = String(tgUser.id)
           firstName = tgUser.first_name || 'Пользователь'
           lastName = tgUser.last_name || ''
           username = tgUser.username || null
           photoUrl = tgUser.photo_url || null
+          console.log('Using Telegram data:', { telegramId, firstName, lastName, username, photoUrl })
+        } else {
+          console.log('No Telegram user data found, using demo mode')
         }
 
         // Create or get user
@@ -166,6 +206,7 @@ export default function PinterestApp() {
           body: JSON.stringify({ telegramId, firstName, lastName, username, photoUrl })
         })
         const userData = await userRes.json()
+        console.log('User data from API:', userData)
         setUser(userData)
 
         // Get categories
