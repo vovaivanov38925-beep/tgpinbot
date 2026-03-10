@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendTaskReminder, from '@/lib/telegram'
+import { sendTaskReminder, sendTaskCompletedNotification } from '@/lib/telegram'
 import { logger } from '@/lib/logger'
-import { sendNewPinNotification } from '@/lib/telegram'
 
 // GET - Get all tasks for a user
 export async function GET(request: NextRequest) {
@@ -60,58 +59,44 @@ export async function POST(request: NextRequest) {
         description: description || null,
         category: category || null,
         priority: priority || 'medium',
-        status: status || 'pending',
         dueDate: dueDate ? new Date(dueDate) : null,
         reminderTime: reminderTime ? new Date(reminderTime) : null,
-        reminderSent: false,
-        points: 5,
+        reminderSent: false
       },
     })
 
     // Get user for notification about reminder
-    const user = await db.user.findUnique({
-      where: { id: userId },
-    })
+    if (reminderTime) {
+      const user = await db.user.findUnique({
+        where: { id: userId },
+      })
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    // Send notification if reminder time is set
-    if (reminderTime && user.telegramChatId) {
-              try {
-                await sendTaskReminder(
-                  user.telegramChatId,
-                  title,
-                  description,
-                  dueDate
-                )
-                await logger.info('telegram', 'Task reminder notification scheduled', {
-                  taskId: task.id,
-                  chatId: user.telegramChatId,
-                  title: task.title,
-                })
-              } catch (error) {
-                console.error('Failed to send reminder notification:', error)
-              }
-            }
+      if (user?.telegramChatId) {
+        try {
+          await sendTaskReminder(
+            user.telegramChatId,
+            title,
+            description,
+            dueDate ? new Date(dueDate) : null
+          )
+          await logger.info('telegram', 'Task reminder notification scheduled', {
+            taskId: task.id,
+            chatId: user.telegramChatId,
+            title: task.title,
+            reminderTime: reminderTime
           })
+        } catch (error) {
+          console.error('Failed to send reminder notification:', error)
         }
       }
+    }
 
-      // Update user points
-      await db.user.update({
-        where: { id: userId },
-        data: {
-          points: { increment: task.points }
-        },
-      })
-
-      await logger.info('api', 'Task created', {
-        taskId: task.id,
-        category,
-        userId,
-      })
+    await logger.info('api', 'Task created', {
+      taskId: task.id,
+      category,
+      userId,
+      reminderTime
+    })
 
     return NextResponse.json(task)
   } catch (error) {
@@ -134,48 +119,50 @@ export async function PATCH(request: NextRequest) {
     // If task is being completed, award points
     if (status === 'completed') {
       const task = await db.task.findUnique({ where: { id } })
-      if (!task) {
-        return NextResponse.json({ error: 'Task not found' }, { status: 404 })
-      }
-
-      if (task.status !== 'completed') {
+      if (task && task.status !== 'completed') {
         await db.user.update({
           where: { id: task.userId },
           data: {
             points: { increment: task.points }
+          }
         })
-      }
 
-      // Send notification about task completion
-      const user = await db.user.findUnique({
-        where: { id: task.userId },
-      })
+        // Send notification about task completion
+        const user = await db.user.findUnique({
+          where: { id: task.userId },
+        })
 
-      if (user?.telegramChatId) {
-        try {
-          await sendTaskCompletedNotification(user.telegramChatId, task.title, task.points)
-          await logger.info('telegram', 'Task completed notification sent', {
-            taskId: task.id,
-            chatId: user.telegramChatId,
-            title: task.title,
-            points: task.points
-          })
-        } catch (error) {
-          console.error('Failed to send completion notification:', error)
+        if (user?.telegramChatId) {
+          try {
+            await sendTaskCompletedNotification(
+              user.telegramChatId,
+              task.title,
+              task.points
+            )
+            await logger.info('telegram', 'Task completed notification sent', {
+              taskId: task.id,
+              chatId: user.telegramChatId,
+              title: task.title,
+              points: task.points
+            })
+          } catch (error) {
+            console.error('Failed to send completion notification:', error)
+          }
         }
       }
+    }
 
-      const task = await db.task.update({
-        where: { id },
-        data: { ...updateData, status: status || updateData.status }
-      })
+    const task = await db.task.update({
+      where: { id },
+      data: { ...updateData, status: status || updateData.status }
+    })
 
-      return NextResponse.json(task)
-    } catch (error) {
+    return NextResponse.json(task)
+  } catch (error) {
     console.error('Error updating task:', error)
     await logger.error('api', 'Error updating task', { error: String(error) })
-      return NextResponse.json({ error: 'Failed to update task' }, { status: 500 })
-    }
+    return NextResponse.json({ error: 'Failed to update task' }, { status: 500 })
+  }
 }
 
 // DELETE - Delete a task
