@@ -57,8 +57,8 @@ export async function sendTaskReminder(
   taskDescription?: string | null,
   reminderTime?: Date | null
 ): Promise<TelegramResponse> {
-  const timeStr = reminderTime
-    ? `\n⏰ ${reminderTime.toLocaleDateString('ru-RU', {
+  const timeLabel = reminderTime
+    ? `🕐 ${reminderTime.toLocaleDateString('ru-RU', {
         day: 'numeric',
         month: 'long',
         hour: '2-digit',
@@ -66,12 +66,13 @@ export async function sendTaskReminder(
       })}`
     : ''
 
-  const text = `<b>🔔 Напоминание</b>
+  const text = `⏰ <b>Напоминание о задаче</b>
 
-<b>${escapeHtml(taskTitle)}</b>
-${taskDescription ? `\n<i>${escapeHtml(taskDescription.substring(0, 150))}${taskDescription.length > 150 ? '...' : ''}</i>` : ''}${timeStr}
+<b>${escapeHtml(taskTitle)}</b>${taskDescription ? `\n${escapeHtml(taskDescription.substring(0, 100))}${taskDescription.length > 100 ? '...' : ''}` : ''}
 
-—\n📎 <i>Отметь выполнение в приложении</i>`
+${timeLabel}
+
+👉 <a href="https://t.me/tgpinbot">Открыть приложение</a>`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -150,21 +151,28 @@ export async function sendSmartReminder(
   }
 
   const deadlineText: Record<string, string> = {
-    '3_days': 'до события 3 дня',
-    '1_day': 'до события 1 день',
-    '4_hours': 'до события 4 часа',
-    '1_hour': 'до события 1 час',
-    '15_min': 'до события 15 минут',
+    '3_days': '🕐 Осталось 3 дня',
+    '1_day': '🕐 Остался 1 день',
+    '4_hours': '🕐 Осталось 4 часа',
+    '1_hour': '🕐 Остался 1 час',
+    '15_min': '🕐 Осталось 15 минут',
   }
 
-  const text = `<b>🔔 ${urgencyText[reminderType]}</b>
+  const dateStr = dueDate.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+
+  const text = `⏰ <b>${urgencyText[reminderType]}</b>
 
 <b>${escapeHtml(taskTitle)}</b>
 
-⏳ ${deadlineText[reminderType]}
-📅 ${dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+${deadlineText[reminderType]}
+📅 Срок: ${dateStr}
 
-—\n📎 <i>Подготовься заранее</i>`
+👉 <a href="https://t.me/tgpinbot">Открыть приложение</a>`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }

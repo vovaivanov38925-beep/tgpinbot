@@ -92,8 +92,8 @@ async function processMainReminders(now: Date): Promise<ReminderResult[]> {
         continue
       }
 
-      const timeStr = task.reminderTime
-        ? `\n⏰ ${task.reminderTime.toLocaleDateString('ru-RU', {
+      const timeLabel = task.reminderTime
+        ? `🕐 ${task.reminderTime.toLocaleDateString('ru-RU', {
             day: 'numeric',
             month: 'long',
             hour: '2-digit',
@@ -101,12 +101,13 @@ async function processMainReminders(now: Date): Promise<ReminderResult[]> {
           })}`
         : ''
 
-      const text = `<b>🔔 Напоминание</b>
+      const text = `⏰ <b>Напоминание о задаче</b>
 
-<b>${escapeHtml(task.title)}</b>
-${task.description ? `\n<i>${escapeHtml(task.description.substring(0, 150))}${task.description.length > 150 ? '...' : ''}</i>` : ''}${timeStr}
+<b>${escapeHtml(task.title)}</b>${task.description ? `\n${escapeHtml(task.description.substring(0, 100))}${task.description.length > 100 ? '...' : ''}` : ''}
 
-—\n📎 <i>Отметь выполнение в приложении</i>`
+${timeLabel}
+
+👉 <a href="https://t.me/tgpinbot">Открыть приложение</a>`
 
       const result = await sendTelegramMessage({ chat_id: chatId, text })
 
@@ -284,21 +285,28 @@ function formatSmartReminder(
   }
 
   const deadlineText: Record<string, string> = {
-    '3_days': 'до события 3 дня',
-    '1_day': 'до события 1 день',
-    '4_hours': 'до события 4 часа',
-    '1_hour': 'до события 1 час',
-    '15_min': 'до события 15 минут',
+    '3_days': '🕐 Осталось 3 дня',
+    '1_day': '🕐 Остался 1 день',
+    '4_hours': '🕐 Осталось 4 часа',
+    '1_hour': '🕐 Остался 1 час',
+    '15_min': '🕐 Осталось 15 минут',
   }
 
-  return `<b>🔔 ${urgencyText[type]}</b>
+  const dateStr = dueDate.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+
+  return `⏰ <b>${urgencyText[type]}</b>
 
 <b>${escapeHtml(taskTitle)}</b>
 
-⏳ ${deadlineText[type]}
-📅 ${dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+${deadlineText[type]}
+📅 Срок: ${dateStr}
 
-—\n📎 <i>Подготовься заранее</i>`
+👉 <a href="https://t.me/tgpinbot">Открыть приложение</a>`
 }
 
 function escapeHtml(text: string): string {
