@@ -67,11 +67,20 @@ export default function AdminPinsPage() {
 
     try {
       const res = await fetch(`/api/admin/pins?${params}`)
+      console.log('Admin pins response status:', res.status)
       const data = await res.json()
+      console.log('Admin pins response data:', data)
+      
+      if (res.status === 401) {
+        console.error('Unauthorized - redirecting to login')
+        window.location.href = '/admin/login'
+        return
+      }
+      
       setPins(data.pins || [])
       setPagination(data.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 })
-    } catch {
-      console.error('Failed to fetch pins')
+    } catch (err) {
+      console.error('Failed to fetch pins:', err)
     } finally {
       setLoading(false)
     }
