@@ -10,6 +10,17 @@ interface TelegramMessage {
   text: string
   parse_mode?: 'HTML' | 'Markdown' | 'MarkdownV2'
   disable_web_page_preview?: boolean
+  reply_markup?: {
+    keyboard?: Array<Array<{ text: string }>>
+    resize_keyboard?: boolean
+    one_time_keyboard?: boolean
+    inline_keyboard?: Array<Array<{
+      text: string
+      url?: string
+      callback_data?: string
+      web_app?: { url: string }
+    }>>
+  }
 }
 
 interface TelegramResponse {
@@ -32,6 +43,7 @@ export async function sendTelegramMessage(message: TelegramMessage): Promise<Tel
         text: message.text,
         parse_mode: message.parse_mode || 'HTML',
         disable_web_page_preview: message.disable_web_page_preview ?? true,
+        reply_markup: message.reply_markup,
       }),
     })
 
@@ -45,6 +57,31 @@ export async function sendTelegramMessage(message: TelegramMessage): Promise<Tel
   } catch (error) {
     console.error('Failed to send Telegram message:', error)
     return { ok: false, description: String(error) }
+  }
+}
+
+/**
+ * Главное меню бота (Reply Keyboard)
+ */
+export function getMainKeyboard() {
+  return {
+    keyboard: [
+      [{ text: '📱 Открыть приложение' }],
+      [{ text: '📊 Моя статистика' }, { text: '❓ Помощь' }],
+    ],
+    resize_keyboard: true,
+    one_time_keyboard: false,
+  }
+}
+
+/**
+ * Inline кнопка для открытия Mini App
+ */
+export function getMiniAppButton(appUrl: string) {
+  return {
+    inline_keyboard: [[
+      { text: '🚀 Открыть приложение', web_app: { url: appUrl } }
+    ]]
   }
 }
 

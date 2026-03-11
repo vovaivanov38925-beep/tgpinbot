@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendTelegramMessage, setTelegramWebhook } from '@/lib/telegram'
+import { sendTelegramMessage, setTelegramWebhook, getMainKeyboard, getMiniAppButton } from '@/lib/telegram'
 import { logger } from '@/lib/logger'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8720645134:AAGOCNBOO4MqgfB10C5FfKnx1vg9oO-SuZc'
+const MINI_APP_URL = process.env.MINI_APP_URL || 'https://tgpinbot-production.up.railway.app'
 
 interface TelegramUpdate {
   update_id: number
@@ -51,51 +52,67 @@ interface TelegramUpdate {
 export async function POST(request: NextRequest) {
   try {
     const body: TelegramUpdate = await request.json()
-    
+
     await logger.info('telegram', 'Webhook received', { update_id: body.update_id })
 
     // Обработка обычных сообщений
     if (body.message?.text) {
       const chatId = body.message.chat.id
-      const text = body.message.text.trim().toLowerCase()
+      const text = body.message.text.trim()
+      const textLower = text.toLowerCase()
       const from = body.message.from
 
       // Команда /start
-      if (text === '/start') {
+      if (textLower === '/start') {
         await handleStartCommand(chatId, from)
         return NextResponse.json({ ok: true })
       }
 
-      // Команда /help
-      if (text === '/help') {
+      // Команда /help или кнопка "Помощь"
+      if (textLower === '/help' || text === '❓ Помощь') {
         await handleHelpCommand(chatId)
         return NextResponse.json({ ok: true })
       }
 
-      // Команда /stats
-      if (text === '/stats') {
+      // Команда /stats или кнопка "Моя статистика"
+      if (textLower === '/stats' || text === '📊 Моя статистика') {
         await handleStatsCommand(chatId, from?.id)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Кнопка "Открыть приложение"
+      if (text === '📱 Открыть приложение') {
+        await handleOpenAppCommand(chatId)
         return NextResponse.json({ ok: true })
       }
 
       // Неизвестная команда
       await sendTelegramMessage({
         chat_id: chatId,
-        text: '🤖 Не понимаю эту команду. Напиши /help для списка команд.',
+        text: '🤖 Не понимаю эту команду. Используй кнопки внизу экрана!',
+        reply_markup: getMainKeyboard(),
       })
-      
+
       return NextResponse.json({ ok: true })
     }
 
-    // Обработка callback queries (кнопки)
+    // Обработка callback queries (inline кнопки)
     if (body.callback_query) {
       const chatId = body.callback_query.message?.chat.id
       const data = body.callback_query.data
-      
+      const callbackId = body.callback_query.id
+
       if (chatId && data) {
         await logger.info('telegram', 'Callback received', { data, chatId })
+
+        // Ответ на callback (убираем часики)
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ callback_query_id: callbackId })
+        })
       }
-      
+
       return NextResponse.json({ ok: true })
     }
 
@@ -160,6 +177,7 @@ async function handleStartCommand(chatId: number, from?: TelegramUpdate['message
     await sendTelegramMessage({
       chat_id: chatId,
       text: '👋 Привет! Я бот для управления идеями из Pinterest.',
+      reply_markup: getMainKeyboard(),
     })
     return
   }
@@ -187,10 +205,10 @@ async function handleStartCommand(chatId: number, from?: TelegramUpdate['message
       },
     })
 
-    await logger.info('telegram', 'User started bot', { 
-      telegramId, 
-      chatId, 
-      userId: user.id 
+    await logger.info('telegram', 'User started bot', {
+      telegramId,
+      chatId,
+      userId: user.id
     })
 
     const welcomeText = `👋 Привет, ${firstName}!
@@ -205,16 +223,25 @@ async function handleStartCommand(chatId: number, from?: TelegramUpdate['message
 🔔 <b>Уведомления включены!</b>
 Теперь я буду присылать напоминания о твоих задачах.
 
-👇 Открой Mini App через кнопку ниже или напиши /help для списка команд.`
+👇 Нажми кнопку ниже, чтобы открыть приложение!`
 
+    // Отправляем приветствие с inline кнопкой для Mini App
     await sendTelegramMessage({
       chat_id: chatId,
       text: welcomeText,
+      reply_markup: getMiniAppButton(MINI_APP_URL),
+    })
+
+    // Затем отправляем главное меню (Reply Keyboard)
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '📱 Используй кнопки внизу для быстрого доступа:',
+      reply_markup: getMainKeyboard(),
     })
   } catch (error) {
     console.error('Error in start command:', error)
     await logger.error('telegram', 'Error in start command', { error: String(error), telegramId })
-    
+
     await sendTelegramMessage({
       chat_id: chatId,
       text: '❌ Произошла ошибка. Попробуй позже.',
@@ -223,26 +250,52 @@ async function handleStartCommand(chatId: number, from?: TelegramUpdate['message
 }
 
 /**
+ * Обработка кнопки "Открыть приложение"
+ */
+async function handleOpenAppCommand(chatId: number) {
+  const text = `🚀 <b>Открыть приложение</b>
+
+Нажми кнопку ниже, чтобы открыть Mini App:`
+
+  await sendTelegramMessage({
+    chat_id: chatId,
+    text,
+    reply_markup: getMiniAppButton(MINI_APP_URL),
+  })
+}
+
+/**
  * Обработка команды /help
  */
 async function handleHelpCommand(chatId: number) {
-  const helpText = `📚 <b>Команды бота:</b>
+  const helpText = `📚 <b>Как пользоваться ботом</b>
 
-/start — Начать работу и включить уведомления
-/help — Показать эту справку
-/stats — Твоя статистика
+📌 <b>Сохранение идей:</b>
+1. Открой приложение через кнопку
+2. Вставь ссылку из Pinterest
+3. Идея сохранится автоматически!
 
-📌 <b>Как пользоваться:</b>
-1. Открой Mini App через кнопку в меню
-2. Добавляй идеи из Pinterest
-3. Создавай задачи с напоминаниями
-4. Получай уведомления вовремя!
+✅ <b>Задачи и напоминания:</b>
+1. Создай задачу в приложении
+2. Укажи время напоминания
+3. Получи уведомление вовремя!
 
-💡 Вопросы? Пиши в поддержку!`
+⭐ <b>Очки и уровни:</b>
+• +10 очков за сохранение идеи
+• +5-15 очков за выполнение задачи
+• Открывай достижения!
+
+👑 <b>Premium:</b>
+• Умные напоминания
+• Двойные очки
+• Эксклюзивные достижения
+
+💡 <b>Подсказка:</b> Используй кнопки внизу экрана для быстрой навигации!`
 
   await sendTelegramMessage({
     chat_id: chatId,
     text: helpText,
+    reply_markup: getMainKeyboard(),
   })
 }
 
@@ -254,6 +307,7 @@ async function handleStatsCommand(chatId: number, telegramUserId?: number) {
     await sendTelegramMessage({
       chat_id: chatId,
       text: '❌ Не могу определить твой аккаунт.',
+      reply_markup: getMainKeyboard(),
     })
     return
   }
@@ -275,6 +329,7 @@ async function handleStatsCommand(chatId: number, telegramUserId?: number) {
       await sendTelegramMessage({
         chat_id: chatId,
         text: '❌ Аккаунт не найден. Напиши /start для регистрации.',
+        reply_markup: getMainKeyboard(),
       })
       return
     }
@@ -288,17 +343,19 @@ async function handleStatsCommand(chatId: number, telegramUserId?: number) {
 ✅ Выполнено задач: <b>${user._count.tasks}</b>
 ${user.isPremium ? '\n👑 Статус: <b>Premium</b>' : ''}
 
-Продолжай в том же духе! 🚀`
+🚀 Продолжай в том же духе!`
 
     await sendTelegramMessage({
       chat_id: chatId,
       text: statsText,
+      reply_markup: getMainKeyboard(),
     })
   } catch (error) {
     console.error('Error in stats command:', error)
     await sendTelegramMessage({
       chat_id: chatId,
       text: '❌ Ошибка получения статистики.',
+      reply_markup: getMainKeyboard(),
     })
   }
 }
