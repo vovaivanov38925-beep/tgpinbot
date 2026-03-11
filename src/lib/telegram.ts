@@ -63,6 +63,7 @@ export async function sendTaskReminder(
         month: 'long',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Europe/Moscow'
       })}`
     : ''
 
@@ -162,7 +163,8 @@ export async function sendSmartReminder(
     day: 'numeric',
     month: 'long',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone: 'Europe/Moscow'
   })
 
   const text = `⏰ <b>${urgencyText[reminderType]}</b>

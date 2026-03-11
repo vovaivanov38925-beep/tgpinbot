@@ -355,12 +355,12 @@ export default function PinterestApp() {
     setIsAddingTask(true)
 
     try {
-      // Combine date and time for reminder
+      // Combine date and time for reminder (keep local time, don't convert to UTC)
       let reminderTime = null
       if (newTaskDueDate && newTaskReminderTime) {
-        reminderTime = new Date(`${newTaskDueDate}T${newTaskReminderTime}:00`).toISOString()
+        reminderTime = `${newTaskDueDate}T${newTaskReminderTime}:00`
       } else if (newTaskDueDate) {
-        reminderTime = new Date(`${newTaskDueDate}T12:00:00`).toISOString()
+        reminderTime = `${newTaskDueDate}T12:00:00`
       }
 
       const res = await fetch('/api/tasks', {
@@ -371,7 +371,7 @@ export default function PinterestApp() {
           title: newTaskTitle,
           description: newTaskDescription,
           priority: newTaskPriority,
-          dueDate: newTaskDueDate ? new Date(newTaskDueDate).toISOString() : null,
+          dueDate: newTaskDueDate ? `${newTaskDueDate}T12:00:00` : null,
           reminderTime
         })
       })
@@ -614,11 +614,12 @@ export default function PinterestApp() {
                                 <div className="flex items-center gap-1 mt-1 text-xs text-primary">
                                   <Bell className="w-3 h-3" />
                                   <span>
-                                    {new Date(task.reminderTime).toLocaleDateString('ru-RU', { 
-                                      day: 'numeric', 
+                                    {new Date(task.reminderTime).toLocaleString('ru-RU', {
+                                      day: 'numeric',
                                       month: 'short',
                                       hour: '2-digit',
-                                      minute: '2-digit'
+                                      minute: '2-digit',
+                                      timeZone: 'Europe/Moscow'
                                     })}
                                   </span>
                                 </div>
