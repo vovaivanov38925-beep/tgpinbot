@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const admin = await getCurrentAdmin()
     if (!admin) {
+      console.log('Admin pins: Unauthorized - no admin session')
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
@@ -20,8 +21,8 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       where.OR = [
-        { title: { contains: search } },
-        { description: { contains: search } }
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
       ]
     }
 
@@ -32,6 +33,8 @@ export async function GET(request: NextRequest) {
     if (userId) {
       where.userId = userId
     }
+
+    console.log('Admin pins: Fetching pins with filters:', { page, limit, search, category, userId })
 
     const [pins, total] = await Promise.all([
       db.pin.findMany({
@@ -49,6 +52,8 @@ export async function GET(request: NextRequest) {
       db.pin.count({ where })
     ])
 
+    console.log('Admin pins: Found', pins.length, 'pins, total:', total)
+
     return NextResponse.json({
       pins,
       pagination: {
@@ -60,7 +65,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Admin pins error:', error)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+    return NextResponse.json({ error: 'Ошибка сервера', details: String(error) }, { status: 500 })
   }
 }
 
