@@ -138,6 +138,7 @@ export default function PinterestApp() {
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [isAddingPin, setIsAddingPin] = useState(false)
   const isAddingTaskRef = useRef(false) // Для мгновенной блокировки
+  const lastTaskAddTimeRef = useRef(0) // Для защиты от быстрых кликов
   const [extractedData, setExtractedData] = useState<{imageUrl: string, title: string | null, description: string | null} | null>(null)
   const [levelProgress, setLevelProgress] = useState(0)
 
@@ -343,11 +344,16 @@ export default function PinterestApp() {
 
   const handleAddTask = async () => {
     // Мгновенная блокировка через ref (синхронно)
+    const now = Date.now()
     if (!user || !newTaskTitle || isAddingTaskRef.current) return
-    
+
+    // Защита от быстрых кликов - минимум 1 секунда между попытками
+    if (now - lastTaskAddTimeRef.current < 1000) return
+
     isAddingTaskRef.current = true
+    lastTaskAddTimeRef.current = now
     setIsAddingTask(true)
-    
+
     try {
       // Combine date and time for reminder
       let reminderTime = null

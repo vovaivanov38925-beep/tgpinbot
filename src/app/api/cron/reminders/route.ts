@@ -101,12 +101,12 @@ async function processMainReminders(now: Date): Promise<ReminderResult[]> {
           })}`
         : ''
 
-      const text = `⏰ <b>Напоминание о задаче</b>
+      const text = `<b>🔔 Напоминание</b>
 
-📋 <b>${escapeHtml(task.title)}</b>
-${task.description ? `\n${escapeHtml(task.description.substring(0, 200))}` : ''}${timeStr}
+<b>${escapeHtml(task.title)}</b>
+${task.description ? `\n<i>${escapeHtml(task.description.substring(0, 150))}${task.description.length > 150 ? '...' : ''}</i>` : ''}${timeStr}
 
-👉 Открой приложение, чтобы отметить выполнение!`
+—\n📎 <i>Отметь выполнение в приложении</i>`
 
       const result = await sendTelegramMessage({ chat_id: chatId, text })
 
@@ -275,30 +275,30 @@ function formatSmartReminder(
   dueDate: Date,
   timeLeft: string
 ): string {
-  const emojis: Record<string, string> = {
-    '3_days': '📅',
-    '1_day': '📆',
-    '4_hours': '⏰',
-    '1_hour': '⏱️',
-    '15_min': '🚨',
-  }
-
   const urgencyText: Record<string, string> = {
-    '3_days': 'Скоро важное событие!',
-    '1_day': 'Событие уже завтра!',
-    '4_hours': 'Осталось немного времени!',
-    '1_hour': 'Остался всего час!',
-    '15_min': 'Срочное напоминание!',
+    '3_days': 'Напоминание',
+    '1_day': 'Напоминание',
+    '4_hours': 'Скоро срок',
+    '1_hour': 'Скоро срок',
+    '15_min': 'Срочно',
   }
 
-  return `${emojis[type] || '⏰'} <b>${urgencyText[type]}</b>
+  const deadlineText: Record<string, string> = {
+    '3_days': 'до события 3 дня',
+    '1_day': 'до события 1 день',
+    '4_hours': 'до события 4 часа',
+    '1_hour': 'до события 1 час',
+    '15_min': 'до события 15 минут',
+  }
 
-📋 <b>${escapeHtml(taskTitle)}</b>
+  return `<b>🔔 ${urgencyText[type]}</b>
 
-⏱️ Срок: ${timeLeft}
+<b>${escapeHtml(taskTitle)}</b>
+
+⏳ ${deadlineText[type]}
 📅 ${dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
 
-👉 Не забудь подготовиться!`
+—\n📎 <i>Подготовься заранее</i>`
 }
 
 function escapeHtml(text: string): string {

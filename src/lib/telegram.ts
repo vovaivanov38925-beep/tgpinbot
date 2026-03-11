@@ -66,12 +66,12 @@ export async function sendTaskReminder(
       })}`
     : ''
 
-  const text = `⏰ <b>Напоминание о задаче</b>
+  const text = `<b>🔔 Напоминание</b>
 
-📋 <b>${escapeHtml(taskTitle)}</b>
-${taskDescription ? `\n${escapeHtml(taskDescription.substring(0, 200))}${taskDescription.length > 200 ? '...' : ''}` : ''}${timeStr}
+<b>${escapeHtml(taskTitle)}</b>
+${taskDescription ? `\n<i>${escapeHtml(taskDescription.substring(0, 150))}${taskDescription.length > 150 ? '...' : ''}</i>` : ''}${timeStr}
 
-👉 Открой приложение, чтобы отметить выполнение!`
+—\n📎 <i>Отметь выполнение в приложении</i>`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -84,12 +84,13 @@ export async function sendTaskCompletedNotification(
   taskTitle: string,
   points: number
 ): Promise<TelegramResponse> {
-  const text = `✅ <b>Задача выполнена!</b>
+  const text = `<b>✅ Задача выполнена</b>
 
-📋 ${escapeHtml(taskTitle)}
+${escapeHtml(taskTitle)}
 
-⭐ +${points} очков!
-Продолжай в том же духе! 🚀`
+⭐ +${points} очков
+
+—\n💪 Продолжай в том же духе!`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -103,12 +104,14 @@ export async function sendAchievementNotification(
   achievementDescription: string,
   points: number
 ): Promise<TelegramResponse> {
-  const text = `🏆 <b>Новое достижение!</b>
+  const text = `<b>🏆 Новое достижение</b>
 
-🎖️ <b>${escapeHtml(achievementName)}</b>
-${escapeHtml(achievementDescription)}
+<b>${escapeHtml(achievementName)}</b>
+<i>${escapeHtml(achievementDescription)}</i>
 
-⭐ +${points} очков!`
+⭐ +${points} очков
+
+—\n🎖 Отличная работа!`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -120,11 +123,11 @@ export async function sendLevelUpNotification(
   chatId: string | number,
   newLevel: number
 ): Promise<TelegramResponse> {
-  const text = `🎉 <b>Поздравляем!</b>
+  const text = `<b>🎉 Новый уровень</b>
 
-🆙 Ты достиг <b>${newLevel} уровня</b>!
+🆙 Ты достиг <b>${newLevel} уровня</b>
 
-Продолжай сохранять идеи и выполнять задачи! 💪`
+—\n💪 Продолжай сохранять идеи и выполнять задачи!`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -138,38 +141,30 @@ export async function sendSmartReminder(
   reminderType: '3_days' | '1_day' | '4_hours' | '1_hour' | '15_min',
   dueDate: Date
 ): Promise<TelegramResponse> {
-  const emojis: Record<string, string> = {
-    '3_days': '📅',
-    '1_day': '📆',
-    '4_hours': '⏰',
-    '1_hour': '⏱️',
-    '15_min': '🚨',
-  }
-
   const urgencyText: Record<string, string> = {
-    '3_days': 'Скоро важное событие!',
-    '1_day': 'Событие уже завтра!',
-    '4_hours': 'Осталось немного времени!',
-    '1_hour': 'Остался всего час!',
-    '15_min': 'Срочное напоминание!',
+    '3_days': 'Напоминание',
+    '1_day': 'Напоминание',
+    '4_hours': 'Скоро срок',
+    '1_hour': 'Скоро срок',
+    '15_min': 'Срочно',
   }
 
-  const timeLeft: Record<string, string> = {
-    '3_days': 'через 3 дня',
-    '1_day': 'завтра',
-    '4_hours': 'через 4 часа',
-    '1_hour': 'через час',
-    '15_min': 'через 15 минут',
+  const deadlineText: Record<string, string> = {
+    '3_days': 'до события 3 дня',
+    '1_day': 'до события 1 день',
+    '4_hours': 'до события 4 часа',
+    '1_hour': 'до события 1 час',
+    '15_min': 'до события 15 минут',
   }
 
-  const text = `${emojis[reminderType]} <b>${urgencyText[reminderType]}</b>
+  const text = `<b>🔔 ${urgencyText[reminderType]}</b>
 
-📋 <b>${escapeHtml(taskTitle)}</b>
+<b>${escapeHtml(taskTitle)}</b>
 
-⏱️ Срок: ${timeLeft[reminderType]}
+⏳ ${deadlineText[reminderType]}
 📅 ${dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
 
-👉 Не забудь подготовиться!`
+—\n📎 <i>Подготовься заранее</i>`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
