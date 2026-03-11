@@ -135,6 +135,8 @@ export default function PinterestApp() {
   const [newTaskReminderTime, setNewTaskReminderTime] = useState('')
   const [isCategorizing, setIsCategorizing] = useState(false)
   const [isExtracting, setIsExtracting] = useState(false)
+  const [isAddingTask, setIsAddingTask] = useState(false)
+  const [isAddingPin, setIsAddingPin] = useState(false)
   const [extractedData, setExtractedData] = useState<{imageUrl: string, title: string | null, description: string | null} | null>(null)
   const [levelProgress, setLevelProgress] = useState(0)
 
@@ -339,8 +341,9 @@ export default function PinterestApp() {
   }
 
   const handleAddTask = async () => {
-    if (!user || !newTaskTitle) return
+    if (!user || !newTaskTitle || isAddingTask) return
 
+    setIsAddingTask(true)
     try {
       // Combine date and time for reminder
       let reminderTime = null
@@ -373,6 +376,8 @@ export default function PinterestApp() {
       setShowAddTask(false)
     } catch (error) {
       console.error('Error adding task:', error)
+    } finally {
+      setIsAddingTask(false)
     }
   }
 

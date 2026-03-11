@@ -26,9 +26,7 @@ export async function sendTelegramMessage(message: TelegramMessage): Promise<Tel
   try {
     const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: message.chat_id,
         text: message.text,
@@ -51,8 +49,7 @@ export async function sendTelegramMessage(message: TelegramMessage): Promise<Tel
 }
 
 /**
- * Отправить уведомление о напоминании задачи
- * Показывает время напоминания, которое указал пользователь
+ * Отправить напоминание о задаче
  */
 export async function sendTaskReminder(
   chatId: string | number,
@@ -60,13 +57,12 @@ export async function sendTaskReminder(
   taskDescription?: string | null,
   reminderTime?: Date | null
 ): Promise<TelegramResponse> {
-  // Показываем время напоминания
   const timeStr = reminderTime
-    ? `\n⏰ Время: ${reminderTime.toLocaleDateString('ru-RU', {
+    ? `\n⏰ ${reminderTime.toLocaleDateString('ru-RU', {
         day: 'numeric',
         month: 'long',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       })}`
     : ''
 
@@ -81,7 +77,7 @@ ${taskDescription ? `\n${escapeHtml(taskDescription.substring(0, 200))}${taskDes
 }
 
 /**
- * Отправить уведомление о выполнении задачи
+ * Уведомление о выполнении задачи
  */
 export async function sendTaskCompletedNotification(
   chatId: string | number,
@@ -99,7 +95,7 @@ export async function sendTaskCompletedNotification(
 }
 
 /**
- * Отправить уведомление о новом достижении
+ * Уведомление о новом достижении
  */
 export async function sendAchievementNotification(
   chatId: string | number,
@@ -118,7 +114,7 @@ ${escapeHtml(achievementDescription)}
 }
 
 /**
- * Отправить уведомление о повышении уровня
+ * Уведомление о повышении уровня
  */
 export async function sendLevelUpNotification(
   chatId: string | number,
@@ -134,15 +130,58 @@ export async function sendLevelUpNotification(
 }
 
 /**
+ * Умное напоминание для премиум пользователей
+ */
+export async function sendSmartReminder(
+  chatId: string | number,
+  taskTitle: string,
+  reminderType: '3_days' | '1_day' | '4_hours' | '1_hour' | '15_min',
+  dueDate: Date
+): Promise<TelegramResponse> {
+  const emojis: Record<string, string> = {
+    '3_days': '📅',
+    '1_day': '📆',
+    '4_hours': '⏰',
+    '1_hour': '⏱️',
+    '15_min': '🚨',
+  }
+
+  const urgencyText: Record<string, string> = {
+    '3_days': 'Скоро важное событие!',
+    '1_day': 'Событие уже завтра!',
+    '4_hours': 'Осталось немного времени!',
+    '1_hour': 'Остался всего час!',
+    '15_min': 'Срочное напоминание!',
+  }
+
+  const timeLeft: Record<string, string> = {
+    '3_days': 'через 3 дня',
+    '1_day': 'завтра',
+    '4_hours': 'через 4 часа',
+    '1_hour': 'через час',
+    '15_min': 'через 15 минут',
+  }
+
+  const text = `${emojis[reminderType]} <b>${urgencyText[reminderType]}</b>
+
+📋 <b>${escapeHtml(taskTitle)}</b>
+
+⏱️ Срок: ${timeLeft[reminderType]}
+📅 ${dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+
+👉 Не забудь подготовиться!`
+
+  return sendTelegramMessage({ chat_id: chatId, text })
+}
+
+/**
  * Установить webhook для бота
  */
 export async function setTelegramWebhook(webhookUrl: string): Promise<TelegramResponse> {
   try {
     const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: webhookUrl,
         allowed_updates: ['message', 'callback_query'],
@@ -168,12 +207,6 @@ export async function getBotInfo(): Promise<TelegramResponse> {
   }
 }
 
-/**
- * Экранирование HTML символов
- */
 function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }

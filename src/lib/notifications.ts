@@ -1,6 +1,6 @@
 /**
  * Notification Service
- * Управление уведомлениями с поддержкой Free и Premium режимов
+ * Упрощённый сервис уведомлений
  */
 
 import { db } from './db'
@@ -12,16 +12,14 @@ import {
 } from './telegram'
 import { logger } from './logger'
 
-// Points needed for each level
 const POINTS_PER_LEVEL = 100
 
-// Points for different actions
 export const POINTS = {
   PIN_CREATED: 10,
   TASK_COMPLETED_BASE: 5,
   TASK_COMPLETED_HIGH_PRIORITY: 15,
   ACHIEVEMENT_BONUS: 50,
-  PREMIUM_MULTIPLIER: 2, // Premium users get double points
+  PREMIUM_MULTIPLIER: 2,
 }
 
 export interface NotificationResult {
@@ -30,45 +28,6 @@ export interface NotificationResult {
   error?: string
 }
 
-/**
- * Get or create notification settings for a user
- */
-export async function getNotificationSettings(userId: string) {
-  let settings = await db.notificationSettings.findUnique({
-    where: { userId },
-  })
-
-  if (!settings) {
-    // Create default settings
-    settings = await db.notificationSettings.create({
-      data: { userId },
-    })
-  }
-
-  return settings
-}
-
-/**
- * Check if current time is within quiet hours
- */
-export function isInQuietHours(settings: {
-  quietHoursStart: number
-  quietHoursEnd: number
-}): boolean {
-  const now = new Date()
-  const currentHour = now.getHours()
-
-  // Handle overnight quiet hours (e.g., 22:00 - 08:00)
-  if (settings.quietHoursStart > settings.quietHoursEnd) {
-    return currentHour >= settings.quietHoursStart || currentHour < settings.quietHoursEnd
-  }
-
-  return currentHour >= settings.quietHoursStart && currentHour < settings.quietHoursEnd
-}
-
-/**
- * Calculate new level based on points
- */
 export function calculateLevel(points: number): number {
   return Math.floor(points / POINTS_PER_LEVEL) + 1
 }
@@ -80,7 +39,6 @@ export async function checkAndAwardAchievements(userId: string): Promise<{
   newAchievements: Array<{ name: string; description: string; points: number }>
   totalPoints: number
 }> {
-  // Get user with stats
   const user = await db.user.findUnique({
     where: { id: userId },
     include: {
@@ -90,56 +48,32 @@ export async function checkAndAwardAchievements(userId: string): Promise<{
           tasks: { where: { status: 'completed' } },
         },
       },
-      achievements: {
-        include: { achievement: true },
-      },
+      achievements: { include: { achievement: true } },
     },
   })
 
-  if (!user) {
-    return { newAchievements: [], totalPoints: 0 }
-  }
+  if (!user) return { newAchievements: [], totalPoints: 0 }
 
-  // Get all achievements
   const allAchievements = await db.achievement.findMany()
   const unlockedIds = user.achievements.map((a) => a.achievementId)
-
   const newAchievements: Array<{ name: string; description: string; points: number }> = []
   let totalPoints = 0
 
-  // Check pin achievements
-  for (const achievement of allAchievements.filter((a) => a.category === 'pins')) {
-    if (!unlockedIds.includes(achievement.id) && user._count.pins >= achievement.requirement) {
-      await db.userAchievement.create({
-        data: { userId, achievementId: achievement.id },
-      })
-      newAchievements.push({
-        name: achievement.name,
-        description: achievement.description,
-        points: achievement.points,
-      })
-      totalPoints += achievement.points
-    }
-  }
+  for (const achievement of allAchievements) {
+    if (unlockedIds.includes(achievement.id)) continue
 
-  // Check task achievements
-  for (const achievement of allAchievements.filter((a) => a.category === 'tasks')) {
-    if (!unlockedIds.includes(achievement.id) && user._count.tasks >= achievement.requirement) {
-      await db.userAchievement.create({
-        data: { userId, achievementId: achievement.id },
-      })
-      newAchievements.push({
-        name: achievement.name,
-        description: achievement.description,
-        points: achievement.points,
-      })
-      totalPoints += achievement.points
+    let shouldUnlock = false
+    if (achievement.category === 'pins' && user._count.pins >= achievement.requirement) {
+      shouldUnlock = true
     }
-  }
+    if (achievement.category === 'tasks' && user._count.tasks >= achievement.requirement) {
+      shouldUnlock = true
+    }
+    if (achievement.category === 'social' && user.level >= achievement.requirement) {
+      shouldUnlock = true
+    }
 
-  // Check level achievements
-  for (const achievement of allAchievements.filter((a) => a.category === 'social')) {
-    if (!unlockedIds.includes(achievement.id) && user.level >= achievement.requirement) {
+    if (shouldUnlock) {
       await db.userAchievement.create({
         data: { userId, achievementId: achievement.id },
       })
@@ -168,185 +102,29 @@ export async function addPointsToUser(
   levelUp: boolean
   previousLevel: number
 }> {
-  const user = await db.user.findUnique({
-    where: { id: userId },
-  })
+  const user = await db.user.findUnique({ where: { id: userId } })
+  if (!user) throw new Error('User not found')
 
-  if (!user) {
-    throw new Error('User not found')
-  }
-
-  // Premium users get double points
   const actualPoints = user.isPremium ? points * POINTS.PREMIUM_MULTIPLIER : points
   const newPoints = user.points + actualPoints
   const previousLevel = user.level
   const newLevel = calculateLevel(newPoints)
   const levelUp = newLevel > previousLevel
 
-  // Update user
   await db.user.update({
     where: { id: userId },
-    data: {
-      points: newPoints,
-      level: newLevel,
-    },
+    data: { points: newPoints, level: newLevel },
   })
 
   await logger.info('gamification', 'Points added', {
-    userId,
-    points: actualPoints,
-    reason,
-    newPoints,
-    newLevel,
-    levelUp,
+    userId, points: actualPoints, reason, newPoints, newLevel, levelUp,
   })
 
   return { newPoints, newLevel, levelUp, previousLevel }
 }
 
 /**
- * Send notification about task completion
- */
-export async function notifyTaskCompleted(
-  userId: string,
-  taskTitle: string,
-  points: number
-): Promise<NotificationResult> {
-  try {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      include: { notificationSettings: true },
-    })
-
-    if (!user?.telegramChatId) {
-      return { sent: false, type: 'task_completed', error: 'No chat ID' }
-    }
-
-    // Check settings
-    const settings = user.notificationSettings || (await getNotificationSettings(userId))
-    if (!settings.taskCompleted) {
-      return { sent: false, type: 'task_completed', error: 'Disabled in settings' }
-    }
-
-    // Check quiet hours
-    if (isInQuietHours(settings)) {
-      return { sent: false, type: 'task_completed', error: 'Quiet hours' }
-    }
-
-    // Premium users get double points notification
-    const displayPoints = user.isPremium ? points * POINTS.PREMIUM_MULTIPLIER : points
-
-    const result = await sendTaskCompletedNotification(user.telegramChatId, taskTitle, displayPoints)
-
-    await logger.info('notification', 'Task completed notification sent', {
-      userId,
-      taskTitle,
-      points: displayPoints,
-      success: result.ok,
-    })
-
-    return { sent: result.ok, type: 'task_completed' }
-  } catch (error) {
-    return { sent: false, type: 'task_completed', error: String(error) }
-  }
-}
-
-/**
- * Send notification about level up
- */
-export async function notifyLevelUp(
-  userId: string,
-  newLevel: number
-): Promise<NotificationResult> {
-  try {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      include: { notificationSettings: true },
-    })
-
-    if (!user?.telegramChatId) {
-      return { sent: false, type: 'level_up', error: 'No chat ID' }
-    }
-
-    // Check settings
-    const settings = user.notificationSettings || (await getNotificationSettings(userId))
-    if (!settings.levelUp) {
-      return { sent: false, type: 'level_up', error: 'Disabled in settings' }
-    }
-
-    // Check quiet hours
-    if (isInQuietHours(settings)) {
-      return { sent: false, type: 'level_up', error: 'Quiet hours' }
-    }
-
-    const result = await sendLevelUpNotification(user.telegramChatId, newLevel)
-
-    await logger.info('notification', 'Level up notification sent', {
-      userId,
-      newLevel,
-      success: result.ok,
-    })
-
-    return { sent: result.ok, type: 'level_up' }
-  } catch (error) {
-    return { sent: false, type: 'level_up', error: String(error) }
-  }
-}
-
-/**
- * Send notification about new achievement
- */
-export async function notifyAchievement(
-  userId: string,
-  name: string,
-  description: string,
-  points: number
-): Promise<NotificationResult> {
-  try {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      include: { notificationSettings: true },
-    })
-
-    if (!user?.telegramChatId) {
-      return { sent: false, type: 'achievement', error: 'No chat ID' }
-    }
-
-    // Check settings
-    const settings = user.notificationSettings || (await getNotificationSettings(userId))
-    if (!settings.achievements) {
-      return { sent: false, type: 'achievement', error: 'Disabled in settings' }
-    }
-
-    // Check quiet hours
-    if (isInQuietHours(settings)) {
-      return { sent: false, type: 'achievement', error: 'Quiet hours' }
-    }
-
-    const result = await sendAchievementNotification(
-      user.telegramChatId,
-      name,
-      description,
-      points
-    )
-
-    await logger.info('notification', 'Achievement notification sent', {
-      userId,
-      achievement: name,
-      success: result.ok,
-    })
-
-    return { sent: result.ok, type: 'achievement' }
-  } catch (error) {
-    return { sent: false, type: 'achievement', error: String(error) }
-  }
-}
-
-/**
- * Process all notifications after an action
- * This is the main entry point for sending notifications
- *
- * Note: Pin notifications are disabled - users don't want spam about saved pins
+ * Process notifications after an action
  */
 export async function processNotifications(
   userId: string,
@@ -366,46 +144,40 @@ export async function processNotifications(
   newAchievements: Array<{ name: string; description: string; points: number }>
 }> {
   const notifications: NotificationResult[] = []
-
-  // Get user for premium check
   const user = await db.user.findUnique({ where: { id: userId } })
   const isPremium = user?.isPremium || false
 
-  // Add points (Premium users get double)
   const actualPoints = isPremium ? data.points * POINTS.PREMIUM_MULTIPLIER : data.points
-  const { newPoints, newLevel, levelUp } = await addPointsToUser(
-    userId,
-    data.points,
-    action
-  )
+  const { newLevel, levelUp } = await addPointsToUser(userId, data.points, action)
 
-  // Only send notification for task completion (not for pins)
-  if (action === 'task_completed' && data.taskTitle) {
-    const result = await notifyTaskCompleted(userId, data.taskTitle, data.points)
-    notifications.push(result)
+  // Send notification for task completion
+  if (action === 'task_completed' && data.taskTitle && user?.telegramChatId) {
+    const displayPoints = isPremium ? data.points * POINTS.PREMIUM_MULTIPLIER : data.points
+    const result = await sendTaskCompletedNotification(user.telegramChatId, data.taskTitle, displayPoints)
+    notifications.push({ sent: result.ok, type: 'task_completed' })
   }
 
   // Check for level up
-  if (levelUp) {
-    const result = await notifyLevelUp(userId, newLevel)
-    notifications.push(result)
+  if (levelUp && user?.telegramChatId) {
+    const result = await sendLevelUpNotification(user.telegramChatId, newLevel)
+    notifications.push({ sent: result.ok, type: 'level_up' })
   }
 
   // Check for new achievements
   const { newAchievements, totalPoints: achievementPoints } = await checkAndAwardAchievements(userId)
 
-  // Send achievement notifications
   for (const achievement of newAchievements) {
-    const result = await notifyAchievement(
-      userId,
-      achievement.name,
-      achievement.description,
-      achievement.points
-    )
-    notifications.push(result)
+    if (user?.telegramChatId) {
+      const result = await sendAchievementNotification(
+        user.telegramChatId,
+        achievement.name,
+        achievement.description,
+        achievement.points
+      )
+      notifications.push({ sent: result.ok, type: 'achievement' })
+    }
   }
 
-  // Add achievement points to user
   if (achievementPoints > 0) {
     await addPointsToUser(userId, achievementPoints, 'achievement')
   }
@@ -420,43 +192,35 @@ export async function processNotifications(
 }
 
 /**
- * Get premium reminder times for a task
- * Returns array of reminder times based on user settings
+ * Get premium reminder times - calculates optimal reminders based on time until due
  */
 export async function getPremiumReminderTimes(
   userId: string,
   dueDate: Date
 ): Promise<Array<{ time: Date; type: 'day' | 'hour' | '15min' }>> {
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    include: { notificationSettings: true },
-  })
+  const user = await db.user.findUnique({ where: { id: userId } })
+  if (!user?.isPremium) return []
 
-  if (!user?.isPremium) {
-    // Free users only get the main reminder
-    return []
-  }
-
-  const settings = user.notificationSettings
+  const now = new Date()
+  const hoursUntilDue = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60)
   const reminders: Array<{ time: Date; type: 'day' | 'hour' | '15min' }> = []
 
-  if (settings?.reminderDayBefore) {
+  // Smart reminder calculation
+  if (hoursUntilDue > 24) {
     const dayBefore = new Date(dueDate)
     dayBefore.setDate(dayBefore.getDate() - 1)
-    dayBefore.setHours(12, 0, 0, 0) // Noon the day before
+    dayBefore.setHours(10, 0, 0, 0)
     reminders.push({ time: dayBefore, type: 'day' })
   }
 
-  if (settings?.reminderHourBefore) {
-    const hourBefore = new Date(dueDate)
-    hourBefore.setHours(hourBefore.getHours() - 1)
+  if (hoursUntilDue > 1) {
+    const hourBefore = new Date(dueDate.getTime() - 60 * 60 * 1000)
     reminders.push({ time: hourBefore, type: 'hour' })
   }
 
-  if (settings?.reminder15MinBefore) {
-    const minutes15Before = new Date(dueDate)
-    minutes15Before.setMinutes(minutes15Before.getMinutes() - 15)
-    reminders.push({ time: minutes15Before, type: '15min' })
+  if (hoursUntilDue > 0.25) {
+    const fifteenMinBefore = new Date(dueDate.getTime() - 15 * 60 * 1000)
+    reminders.push({ time: fifteenMinBefore, type: '15min' })
   }
 
   return reminders

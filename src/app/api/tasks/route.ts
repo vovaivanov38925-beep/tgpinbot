@@ -16,21 +16,13 @@ export async function GET(request: NextRequest) {
     }
 
     const where: Record<string, unknown> = { userId }
-    if (status) {
-      where.status = status
-    }
-    if (category) {
-      where.category = category
-    }
+    if (status) where.status = status
+    if (category) where.category = category
 
     const tasks = await db.task.findMany({
       where,
-      include: {
-        pin: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      include: { pin: true },
+      orderBy: { createdAt: 'desc' },
     })
 
     return NextResponse.json(tasks)
@@ -45,29 +37,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const {
-      userId,
-      pinId,
-      title,
-      description,
-      category,
-      priority,
-      dueDate,
-      reminderTime,
-    } = body
+    const { userId, pinId, title, description, category, priority, dueDate, reminderTime } = body
 
     if (!userId || !title) {
-      return NextResponse.json(
-        { error: 'User ID and title are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'User ID and title are required' }, { status: 400 })
     }
 
-    // Calculate points based on priority
     const taskPoints =
-      priority === 'high'
-        ? POINTS.TASK_COMPLETED_HIGH_PRIORITY
-        : POINTS.TASK_COMPLETED_BASE
+      priority === 'high' ? POINTS.TASK_COMPLETED_HIGH_PRIORITY : POINTS.TASK_COMPLETED_BASE
 
     const task = await db.task.create({
       data: {
@@ -85,11 +62,9 @@ export async function POST(request: NextRequest) {
     })
 
     // Get user for premium check
-    const user = await db.user.findUnique({
-      where: { id: userId },
-    })
+    const user = await db.user.findUnique({ where: { id: userId } })
 
-    // For premium users, log additional reminders scheduled
+    // Log premium reminders if applicable
     if (user?.isPremium && dueDate) {
       const premiumReminders = await getPremiumReminderTimes(userId, new Date(dueDate))
       if (premiumReminders.length > 0) {
@@ -102,7 +77,6 @@ export async function POST(request: NextRequest) {
 
     await logger.info('api', 'Task created', {
       taskId: task.id,
-      category,
       userId,
       reminderTime: reminderTime ? new Date(reminderTime).toISOString() : null,
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
@@ -129,24 +103,15 @@ export async function PATCH(request: NextRequest) {
 
     // If task is being completed, award points and send notifications
     if (status === 'completed') {
-      const task = await db.task.findUnique({
-        where: { id },
-        include: { user: true },
-      })
+      const task = await db.task.findUnique({ where: { id } })
 
       if (task && task.status !== 'completed') {
-        // Process notifications (points, level up, achievements)
-        const notificationResult = await processNotifications(
-          task.userId,
-          'task_completed',
-          {
-            taskTitle: task.title,
-            taskPriority: task.priority,
-            points: task.points,
-          }
-        )
+        const notificationResult = await processNotifications(task.userId, 'task_completed', {
+          taskTitle: task.title,
+          taskPriority: task.priority,
+          points: task.points,
+        })
 
-        // Update task with completion info
         const updatedTask = await db.task.update({
           where: { id },
           data: { ...updateData, status: 'completed' },
@@ -157,10 +122,8 @@ export async function PATCH(request: NextRequest) {
           userId: task.userId,
           pointsEarned: notificationResult.points,
           levelUp: notificationResult.levelUp,
-          achievements: notificationResult.newAchievements.length,
         })
 
-        // Return task with notification info
         return NextResponse.json({
           ...updatedTask,
           pointsEarned: notificationResult.points,
@@ -194,10 +157,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Task ID is required' }, { status: 400 })
     }
 
-    await db.task.delete({
-      where: { id },
-    })
-
+    await db.task.delete({ where: { id } })
     await logger.info('api', 'Task deleted', { taskId: id })
 
     return NextResponse.json({ success: true })
