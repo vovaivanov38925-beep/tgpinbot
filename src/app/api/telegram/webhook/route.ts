@@ -3,9 +3,9 @@ import { db } from '@/lib/db'
 import { sendTelegramMessage, setTelegramWebhook, getMainKeyboard, getMiniAppButton } from '@/lib/telegram'
 import { logger } from '@/lib/logger'
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8720645134:AAGOCNBOO4MqgfB10C5FfKnx1vg9oO-SuZc'
-const MINI_APP_URL = process.env.MINI_APP_URL || 'https://tgpinbot-production.up.railway.app'
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '' // Telegram chat ID админа для поддержки
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!
+const MINI_APP_URL = process.env.MINI_APP_URL!
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID! // Telegram chat ID админа для поддержки
 
 interface TelegramUpdate {
   update_id: number

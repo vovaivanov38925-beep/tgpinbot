@@ -3,7 +3,7 @@
  * Отправка уведомлений пользователям через Telegram Bot API
  */
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8720645134:AAGOCNBOO4MqgfB10C5FfKnx1vg9oO-SuZc'
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!
 
 interface TelegramMessage {
   chat_id: string | number
