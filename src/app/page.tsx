@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -137,6 +137,7 @@ export default function PinterestApp() {
   const [isExtracting, setIsExtracting] = useState(false)
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [isAddingPin, setIsAddingPin] = useState(false)
+  const isAddingTaskRef = useRef(false) // Для мгновенной блокировки
   const [extractedData, setExtractedData] = useState<{imageUrl: string, title: string | null, description: string | null} | null>(null)
   const [levelProgress, setLevelProgress] = useState(0)
 
@@ -341,9 +342,12 @@ export default function PinterestApp() {
   }
 
   const handleAddTask = async () => {
-    if (!user || !newTaskTitle || isAddingTask) return
-
+    // Мгновенная блокировка через ref (синхронно)
+    if (!user || !newTaskTitle || isAddingTaskRef.current) return
+    
+    isAddingTaskRef.current = true
     setIsAddingTask(true)
+    
     try {
       // Combine date and time for reminder
       let reminderTime = null
@@ -377,6 +381,7 @@ export default function PinterestApp() {
     } catch (error) {
       console.error('Error adding task:', error)
     } finally {
+      isAddingTaskRef.current = false
       setIsAddingTask(false)
     }
   }
@@ -1013,7 +1018,7 @@ export default function PinterestApp() {
             </Button>
             <Button
               onClick={handleAddTask}
-              disabled={!newTaskTitle}
+              disabled={!newTaskTitle || isAddingTask}
               className="gradient-lavender text-white border-0"
             >
               Создать
