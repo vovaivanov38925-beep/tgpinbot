@@ -7,9 +7,6 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8720645134:AAGOCNBOO4MqgfB1
 const MINI_APP_URL = process.env.MINI_APP_URL || 'https://tgpinbot-production.up.railway.app'
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '' // Telegram chat ID админа для поддержки
 
-// Хранилище состояний пользователей в памяти (проще чем менять базу)
-const userStates = new Map<number, string>()
-
 interface TelegramUpdate {
   update_id: number
   message?: {
@@ -96,9 +93,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true })
       }
 
+      // Проверяем состояние пользователя в базе
+      const user = await db.user.findUnique({
+        where: { telegramId: String(from?.id) }
+      })
+
       // Если пользователь в режиме написания сообщения в поддержку
-      if (from?.id && userStates.get(from.id) === 'support:waiting') {
-        await handleSupportMessage(chatId, from.id, text)
+      if (user?.botState === 'support:waiting') {
+        await handleSupportMessage(chatId, from?.id, text)
         return NextResponse.json({ ok: true })
       }
 
@@ -389,10 +391,14 @@ async function handleSupportCommand(chatId: number, telegramUserId?: number) {
     return
   }
 
-  // Устанавливаем режим ожидания сообщения (в памяти)
-  userStates.set(telegramUserId, 'support:waiting')
+  try {
+    // Устанавливаем режим ожидания сообщения в базе
+    await db.user.update({
+      where: { telegramId: String(telegramUserId) },
+      data: { botState: 'support:waiting' }
+    })
 
-  const supportText = `💬 <b>Техподдержка</b>
+    const supportText = `💬 <b>Техподдержка</b>
 
 Напиши своё сообщение или вопрос, и я передам его команде поддержки!
 
@@ -400,24 +406,38 @@ async function handleSupportCommand(chatId: number, telegramUserId?: number) {
 
 Чтобы отменить — нажми любую кнопку меню.`
 
-  await sendTelegramMessage({
-    chat_id: chatId,
-    text: supportText,
-  })
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: supportText,
+    })
+  } catch (error) {
+    console.error('Error in support command:', error)
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Ошибка. Попробуй позже.',
+      reply_markup: getMainKeyboard(),
+    })
+  }
 }
 
 /**
  * Обработка сообщения в поддержку
  */
-async function handleSupportMessage(chatId: number, telegramUserId: number, message: string) {
-  if (!ADMIN_CHAT_ID) {
+async function handleSupportMessage(chatId: number, telegramUserId: number | undefined, message: string) {
+  if (!telegramUserId || !ADMIN_CHAT_ID) {
     await sendTelegramMessage({
       chat_id: chatId,
       text: '❌ Не удалось отправить сообщение. Попробуй позже.',
       reply_markup: getMainKeyboard(),
     })
+
     // Сбрасываем состояние
-    userStates.delete(telegramUserId)
+    if (telegramUserId) {
+      await db.user.update({
+        where: { telegramId: String(telegramUserId) },
+        data: { botState: null }
+      })
+    }
     return
   }
 
@@ -427,8 +447,17 @@ async function handleSupportMessage(chatId: number, telegramUserId: number, mess
       where: { telegramId: String(telegramUserId) }
     })
 
-    const userName = user?.firstName || 'Пользователь'
-    const userUsername = user?.username || null
+    if (!user) {
+      await sendTelegramMessage({
+        chat_id: chatId,
+        text: '❌ Аккаунт не найден.',
+        reply_markup: getMainKeyboard(),
+      })
+      return
+    }
+
+    const userName = user.firstName || 'Пользователь'
+    const userUsername = user.username || null
 
     // Формируем сообщение для админа
     const adminMessage = `📩 <b>Сообщение в поддержку</b>
@@ -461,7 +490,10 @@ ${message}
     })
 
     // Сбрасываем состояние
-    userStates.delete(telegramUserId)
+    await db.user.update({
+      where: { telegramId: String(telegramUserId) },
+      data: { botState: null }
+    })
 
     await logger.info('telegram', 'Support message sent', {
       telegramUserId,
@@ -476,6 +508,9 @@ ${message}
     })
 
     // Сбрасываем состояние
-    userStates.delete(telegramUserId)
+    await db.user.update({
+      where: { telegramId: String(telegramUserId) },
+      data: { botState: null }
+    })
   }
 }
