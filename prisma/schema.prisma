@@ -30,6 +30,7 @@ model User {
   tasks              Task[]
   achievements       UserAchievement[]
   notificationSettings NotificationSettings?
+  supportTickets     SupportTicket[]
 
   @@map("users")
 }
@@ -323,4 +324,68 @@ model BroadcastLog {
   @@index([broadcastId])
   @@index([status])
   @@map("broadcast_logs")
+}
+
+// Система поддержки
+model SupportTicket {
+  id              String   @id @default(cuid())
+  userId          String
+  telegramId      String
+  chatId          String   // Telegram chat ID для ответов
+
+  // Информация о тикете
+  subject         String?  // Тема (опционально)
+  category        String   @default("general") // general, bug, feature, payment, other
+  priority        String   @default("normal") // low, normal, high, urgent
+
+  // Статус
+  status          String   @default("open") // open, in_progress, waiting_user, resolved, closed
+
+  // Метаданные
+  firstMessage    String   // Первое сообщение пользователя
+  lastMessage     String?  // Последнее сообщение в переписке
+  lastMessageAt   DateTime? // Время последнего сообщения
+  lastMessageFrom String?  // Кто отправил последнее сообщение (user/admin)
+
+  // Временные метки
+  assignedTo      String?  // ID админа, который взял тикет
+  assignedAt      DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Связи
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages        SupportMessage[]
+
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+// Сообщения в тикетах поддержки
+model SupportMessage {
+  id          String   @id @default(cuid())
+  ticketId    String
+  senderType  String   // user, admin, bot
+  senderId    String?  // ID админа если отправитель админ
+  senderName  String?  // Имя отправителя
+
+  message     String   // Текст сообщения (HTML)
+  isRead      Boolean  @default(false) // Прочитано ли получателем
+  readAt      DateTime?
+
+  // Вложения (опционально)
+  attachments String?  // JSON массив URL вложений
+
+  createdAt   DateTime @default(now())
+
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("support_messages")
 }

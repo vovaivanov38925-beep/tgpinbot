@@ -68,7 +68,7 @@ export function getMainKeyboard() {
     keyboard: [
       [{ text: '📱 Открыть приложение' }],
       [{ text: '📊 Моя статистика' }, { text: '❓ Помощь' }],
-      [{ text: '💬 Техподдержка' }],
+      [{ text: '💬 Техподдержка' }, { text: '📋 Мои обращения' }],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
