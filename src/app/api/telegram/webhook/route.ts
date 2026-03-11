@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8720645134:AAGOCNBOO4MqgfB10C5FfKnx1vg9oO-SuZc'
 const MINI_APP_URL = process.env.MINI_APP_URL || 'https://tgpinbot-production.up.railway.app'
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '' // Telegram chat ID админа для поддержки
 
 interface TelegramUpdate {
   update_id: number
@@ -83,6 +84,22 @@ export async function POST(request: NextRequest) {
       // Кнопка "Открыть приложение"
       if (text === '📱 Открыть приложение') {
         await handleOpenAppCommand(chatId)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Кнопка "Техподдержка"
+      if (text === '💬 Техподдержка') {
+        await handleSupportCommand(chatId, from?.id)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Если пользователь в режиме написания сообщения в поддержку
+      const user = await db.user.findUnique({
+        where: { telegramId: String(from?.id) }
+      })
+
+      if (user?.botState === 'support:waiting') {
+        await handleSupportMessage(chatId, from?.id, text)
         return NextResponse.json({ ok: true })
       }
 
@@ -356,6 +373,142 @@ ${user.isPremium ? '\n👑 Статус: <b>Premium</b>' : ''}
       chat_id: chatId,
       text: '❌ Ошибка получения статистики.',
       reply_markup: getMainKeyboard(),
+    })
+  }
+}
+
+/**
+ * Обработка кнопки "Техподдержка"
+ */
+async function handleSupportCommand(chatId: number, telegramUserId?: number) {
+  if (!telegramUserId) {
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Не могу определить твой аккаунт.',
+      reply_markup: getMainKeyboard(),
+    })
+    return
+  }
+
+  try {
+    // Устанавливаем режим ожидания сообщения
+    await db.user.update({
+      where: { telegramId: String(telegramUserId) },
+      data: { botState: 'support:waiting' }
+    })
+
+    const supportText = `💬 <b>Техподдержка</b>
+
+Напиши своё сообщение или вопрос, и я передам его команде поддержки!
+
+📝 <i>Опиши проблему как можно подробнее.</i>
+
+⚠️ <i>Отправка сообщения отменит текущие напоминания.</i>
+Чтобы отменить — нажми любую кнопку меню.`
+
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: supportText,
+    })
+  } catch (error) {
+    console.error('Error in support command:', error)
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Ошибка. Попробуй позже.',
+      reply_markup: getMainKeyboard(),
+    })
+  }
+}
+
+/**
+ * Обработка сообщения в поддержку
+ */
+async function handleSupportMessage(chatId: number, telegramUserId: number | undefined, message: string) {
+  if (!telegramUserId || !ADMIN_CHAT_ID) {
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Не удалось отправить сообщение. Попробуй позже.',
+      reply_markup: getMainKeyboard(),
+    })
+    
+    // Сбрасываем состояние
+    if (telegramUserId) {
+      await db.user.update({
+        where: { telegramId: String(telegramUserId) },
+        data: { botState: null }
+      })
+    }
+    return
+  }
+
+  try {
+    // Получаем информацию о пользователе
+    const user = await db.user.findUnique({
+      where: { telegramId: String(telegramUserId) }
+    })
+
+    if (!user) {
+      await sendTelegramMessage({
+        chat_id: chatId,
+        text: '❌ Аккаунт не найден.',
+        reply_markup: getMainKeyboard(),
+      })
+      return
+    }
+
+    // Формируем сообщение для админа
+    const adminMessage = `📩 <b>Сообщение в поддержку</b>
+
+👤 <b>Пользователь:</b> ${user.firstName || 'Без имени'} ${user.lastName || ''}
+🆔 <b>Username:</b> ${user.username ? '@' + user.username : 'нет'}
+📌 <b>ID:</b> <code>${telegramUserId}</code>
+${user.isPremium ? '👑 Premium\n' : ''}
+
+💬 <b>Сообщение:</b>
+${message}
+
+---
+💬 <i>Чтобы ответить, перешли это сообщение пользователю или напиши напрямую.</i>`
+
+    // Отправляем админу
+    await sendTelegramMessage({
+      chat_id: ADMIN_CHAT_ID,
+      text: adminMessage,
+    })
+
+    // Подтверждение пользователю
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: `✅ <b>Сообщение отправлено!</b>
+
+Спасибо за обращение! Команда поддержки ответит тебе в ближайшее время.
+
+📧 Обычно мы отвечаем в течение 24 часов.`,
+      reply_markup: getMainKeyboard(),
+    })
+
+    // Сбрасываем состояние
+    await db.user.update({
+      where: { telegramId: String(telegramUserId) },
+      data: { botState: null }
+    })
+
+    await logger.info('telegram', 'Support message sent', {
+      telegramUserId,
+      messageLength: message.length
+    })
+  } catch (error) {
+    console.error('Error sending support message:', error)
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Ошибка отправки. Попробуй позже.',
+      reply_markup: getMainKeyboard(),
+    })
+
+    // Сбрасываем состояние
+    await db.user.update({
+      where: { telegramId: String(telegramUserId) },
+      data: { botState: null }
     })
   }
 }
