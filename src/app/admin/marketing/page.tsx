@@ -199,6 +199,33 @@ export default function AdminMarketingPage() {
     }
   }
 
+  const handleSendAd = async (adId: string) => {
+    if (!confirm('Отправить рекламу сейчас?')) return
+    setSending(true)
+
+    try {
+      const res = await fetch('/api/ads/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adId })
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        alert(`Реклама отправлена!\nОтправлено: ${data.sentCount}\nОшибок: ${data.failedCount}`)
+        fetchData()
+      } else {
+        alert('Ошибка: ' + data.error)
+      }
+    } catch (e) {
+      console.error('Failed to send ad', e)
+      alert('Ошибка отправки')
+    } finally {
+      setSending(false)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       draft: 'bg-slate-700/50 text-slate-400',
@@ -379,6 +406,16 @@ export default function AdminMarketingPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {(item.status === 'draft' || item.status === 'active') && (
+                      <button
+                        onClick={() => handleSendAd(item.id)}
+                        disabled={sending}
+                        className="p-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                        title="Отправить"
+                      >
+                        <Play className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => openEditModal(item)}
                       className="p-2 rounded-lg bg-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700"
