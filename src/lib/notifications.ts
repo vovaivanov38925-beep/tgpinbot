@@ -9,8 +9,6 @@ import {
   sendAchievementNotification,
   sendLevelUpNotification,
   sendTaskCompletedNotification,
-  sendNewPinNotification,
-  sendTaskReminder,
 } from './telegram'
 import { logger } from './logger'
 
@@ -207,49 +205,6 @@ export async function addPointsToUser(
 }
 
 /**
- * Send notification about new pin
- */
-export async function notifyNewPin(
-  userId: string,
-  pinTitle: string,
-  category?: string | null
-): Promise<NotificationResult> {
-  try {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      include: { notificationSettings: true },
-    })
-
-    if (!user?.telegramChatId) {
-      return { sent: false, type: 'new_pin', error: 'No chat ID' }
-    }
-
-    // Check settings
-    const settings = user.notificationSettings || (await getNotificationSettings(userId))
-    if (!settings.newPins) {
-      return { sent: false, type: 'new_pin', error: 'Disabled in settings' }
-    }
-
-    // Check quiet hours
-    if (isInQuietHours(settings)) {
-      return { sent: false, type: 'new_pin', error: 'Quiet hours' }
-    }
-
-    const result = await sendNewPinNotification(user.telegramChatId, pinTitle, category)
-
-    await logger.info('notification', 'Pin notification sent', {
-      userId,
-      pinTitle,
-      success: result.ok,
-    })
-
-    return { sent: result.ok, type: 'new_pin' }
-  } catch (error) {
-    return { sent: false, type: 'new_pin', error: String(error) }
-  }
-}
-
-/**
  * Send notification about task completion
  */
 export async function notifyTaskCompleted(
@@ -390,6 +345,8 @@ export async function notifyAchievement(
 /**
  * Process all notifications after an action
  * This is the main entry point for sending notifications
+ *
+ * Note: Pin notifications are disabled - users don't want spam about saved pins
  */
 export async function processNotifications(
   userId: string,
@@ -409,7 +366,6 @@ export async function processNotifications(
   newAchievements: Array<{ name: string; description: string; points: number }>
 }> {
   const notifications: NotificationResult[] = []
-  let totalPoints = data.points
 
   // Get user for premium check
   const user = await db.user.findUnique({ where: { id: userId } })
@@ -417,18 +373,13 @@ export async function processNotifications(
 
   // Add points (Premium users get double)
   const actualPoints = isPremium ? data.points * POINTS.PREMIUM_MULTIPLIER : data.points
-  const { newPoints, newLevel, levelUp, previousLevel } = await addPointsToUser(
+  const { newPoints, newLevel, levelUp } = await addPointsToUser(
     userId,
     data.points,
     action
   )
 
-  // Send action-specific notification
-  if (action === 'pin_created' && data.pinTitle) {
-    const result = await notifyNewPin(userId, data.pinTitle, data.pinCategory)
-    notifications.push(result)
-  }
-
+  // Only send notification for task completion (not for pins)
   if (action === 'task_completed' && data.taskTitle) {
     const result = await notifyTaskCompleted(userId, data.taskTitle, data.points)
     notifications.push(result)
@@ -457,7 +408,6 @@ export async function processNotifications(
   // Add achievement points to user
   if (achievementPoints > 0) {
     await addPointsToUser(userId, achievementPoints, 'achievement')
-    totalPoints += achievementPoints
   }
 
   return {
@@ -510,37 +460,4 @@ export async function getPremiumReminderTimes(
   }
 
   return reminders
-}
-
-/**
- * Send a premium reminder with custom message
- */
-export async function sendPremiumReminder(
-  chatId: string | number,
-  taskTitle: string,
-  reminderType: 'day' | 'hour' | '15min',
-  dueDate: Date
-): Promise<NotificationResult> {
-  const timeText = {
-    day: 'завтра',
-    hour: 'через час',
-    '15min': 'через 15 минут',
-  }
-
-  const urgencyEmoji = {
-    day: '📅',
-    hour: '⏰',
-    '15min': '🚨',
-  }
-
-  const text = `${urgencyEmoji[reminderType]} <b>Напоминание</b>
-
-📋 <b>${taskTitle}</b>
-
-⏱️ Срок: ${timeText[reminderType]}!
-${reminderType === '15min' ? 'Пора готовиться!' : 'Не забудьте!'}`
-
-  const result = await sendTelegramMessage({ chat_id: chatId, text })
-
-  return { sent: result.ok, type: `reminder_${reminderType}` }
 }

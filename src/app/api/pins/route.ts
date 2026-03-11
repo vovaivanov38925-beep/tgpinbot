@@ -79,24 +79,21 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Process notifications (points, level up, achievements)
+    // Add points (without notification about new pin)
     const notificationResult = await processNotifications(userId, 'pin_created', {
       pinTitle: title || 'Новый пин',
       pinCategory: category,
       points: POINTS.PIN_CREATED,
     })
 
-    // Log successful pin creation
     await logger.info('api', 'Pin created', {
       pinId: pin.id,
       category,
       userId,
       pointsEarned: notificationResult.points,
-      levelUp: notificationResult.levelUp,
-      achievements: notificationResult.newAchievements.length,
     })
 
-    // Return pin with notification info
+    // Return pin with points info
     return NextResponse.json({
       ...pin,
       points: notificationResult.points,

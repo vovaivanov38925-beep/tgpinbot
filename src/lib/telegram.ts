@@ -38,7 +38,7 @@ export async function sendTelegramMessage(message: TelegramMessage): Promise<Tel
     })
 
     const data = await response.json()
-    
+
     if (!data.ok) {
       console.error('Telegram API error:', data.description)
     }
@@ -52,21 +52,28 @@ export async function sendTelegramMessage(message: TelegramMessage): Promise<Tel
 
 /**
  * Отправить уведомление о напоминании задачи
+ * Показывает время напоминания, которое указал пользователь
  */
 export async function sendTaskReminder(
   chatId: string | number,
   taskTitle: string,
   taskDescription?: string | null,
-  dueDate?: Date | null
+  reminderTime?: Date | null
 ): Promise<TelegramResponse> {
-  const dateStr = dueDate 
-    ? `\n📅 Срок: ${dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}`
+  // Показываем время напоминания
+  const timeStr = reminderTime
+    ? `\n⏰ Время: ${reminderTime.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`
     : ''
 
   const text = `⏰ <b>Напоминание о задаче</b>
 
 📋 <b>${escapeHtml(taskTitle)}</b>
-${taskDescription ? `\n${escapeHtml(taskDescription)}` : ''}${dateStr}
+${taskDescription ? `\n${escapeHtml(taskDescription.substring(0, 200))}${taskDescription.length > 200 ? '...' : ''}` : ''}${timeStr}
 
 👉 Открой приложение, чтобы отметить выполнение!`
 
@@ -74,38 +81,19 @@ ${taskDescription ? `\n${escapeHtml(taskDescription)}` : ''}${dateStr}
 }
 
 /**
- * Отправить уведомление о новом пине
+ * Отправить уведомление о выполнении задачи
  */
-export async function sendNewPinNotification(
+export async function sendTaskCompletedNotification(
   chatId: string | number,
-  pinTitle: string,
-  category?: string | null
+  taskTitle: string,
+  points: number
 ): Promise<TelegramResponse> {
-  const categoryEmoji: Record<string, string> = {
-    recipe: '🍳',
-    fashion: '👗',
-    diy: '🔧',
-    travel: '✈️',
-    fitness: '💪',
-    beauty: '💄',
-    home: '🏠',
-    art: '🎨',
-    garden: '🌻',
-    wedding: '💒',
-    kids: '👶',
-    pets: '🐱',
-    tech: '💻',
-    books: '📚',
-    other: '✨',
-  }
+  const text = `✅ <b>Задача выполнена!</b>
 
-  const emoji = category ? categoryEmoji[category] || '📌' : '📌'
+📋 ${escapeHtml(taskTitle)}
 
-  const text = `${emoji} <b>Новая идея сохранена!</b>
-
-📝 ${escapeHtml(pinTitle)}
-
-💡 Продолжай сохранять вдохновение!`
+⭐ +${points} очков!
+Продолжай в том же духе! 🚀`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -125,24 +113,6 @@ export async function sendAchievementNotification(
 ${escapeHtml(achievementDescription)}
 
 ⭐ +${points} очков!`
-
-  return sendTelegramMessage({ chat_id: chatId, text })
-}
-
-/**
- * Отправить уведомление о выполнении задачи
- */
-export async function sendTaskCompletedNotification(
-  chatId: string | number,
-  taskTitle: string,
-  points: number
-): Promise<TelegramResponse> {
-  const text = `✅ <b>Задача выполнена!</b>
-
-📋 ${escapeHtml(taskTitle)}
-
-⭐ +${points} очков!
-Продолжай в том же духе! 🚀`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -206,15 +176,4 @@ function escapeHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-}
-
-export default {
-  sendMessage: sendTelegramMessage,
-  sendTaskReminder,
-  sendNewPinNotification,
-  sendAchievementNotification,
-  sendTaskCompletedNotification,
-  sendLevelUpNotification,
-  setWebhook: setTelegramWebhook,
-  getBotInfo,
 }

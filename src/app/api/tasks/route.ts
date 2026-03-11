@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { processNotifications, POINTS, getPremiumReminderTimes, sendPremiumReminder } from '@/lib/notifications'
-import { sendTaskReminder } from '@/lib/telegram'
+import { processNotifications, POINTS, getPremiumReminderTimes } from '@/lib/notifications'
 import { logger } from '@/lib/logger'
 
 // GET - Get all tasks for a user
@@ -85,39 +84,14 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Get user for notification
+    // Get user for premium check
     const user = await db.user.findUnique({
       where: { id: userId },
-      include: { notificationSettings: true },
     })
 
-    // Send immediate confirmation if reminder is set
-    if (reminderTime && user?.telegramChatId) {
-      try {
-        const settings = user.notificationSettings
-        if (settings?.taskReminders) {
-          await sendTaskReminder(
-            user.telegramChatId,
-            title,
-            description,
-            dueDate ? new Date(dueDate) : null
-          )
-          await logger.info('telegram', 'Task reminder notification sent', {
-            taskId: task.id,
-            chatId: user.telegramChatId,
-            title: task.title,
-          })
-        }
-      } catch (error) {
-        console.error('Failed to send reminder notification:', error)
-      }
-    }
-
-    // For premium users, set up additional reminders
+    // For premium users, log additional reminders scheduled
     if (user?.isPremium && dueDate) {
       const premiumReminders = await getPremiumReminderTimes(userId, new Date(dueDate))
-
-      // Log premium reminders scheduled
       if (premiumReminders.length > 0) {
         await logger.info('api', 'Premium reminders scheduled', {
           taskId: task.id,
@@ -130,7 +104,8 @@ export async function POST(request: NextRequest) {
       taskId: task.id,
       category,
       userId,
-      reminderTime,
+      reminderTime: reminderTime ? new Date(reminderTime).toISOString() : null,
+      dueDate: dueDate ? new Date(dueDate).toISOString() : null,
       isPremium: user?.isPremium,
     })
 
