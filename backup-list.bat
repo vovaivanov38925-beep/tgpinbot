@@ -3,28 +3,23 @@ chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 :: ============================================
-:: BACKUP LIST для tgpinbot
-:: Можно запускать откуда угодно!
+:: BACKUP LIST for tgpinbot
 :: ============================================
 
-:: === НАСТРОЙКА: Укажи путь к проекту ===
-:: Если пусто - спросит при запуске
+:: === CONFIG: Set project path here ===
 set PROJECT_PATH=
 
-:: Если путь не задан выше - спрашиваем
 if "%PROJECT_PATH%"=="" (
     echo.
-    set /p PROJECT_PATH="📁 Введи путь к проекту: "
+    set /p PROJECT_PATH="Enter project path: "
 )
 
-:: Убираем кавычки если есть
 set PROJECT_PATH=%PROJECT_PATH:"=%
 
-:: Переходим в папку проекта
 if not exist "%PROJECT_PATH%\.git" (
     echo.
-    echo ❌ Ошибка: В этой папке нет Git!
-    echo    Путь: %PROJECT_PATH%
+    echo ERROR: No Git in this folder!
+    echo Path: %PROJECT_PATH%
     echo.
     pause
     exit /b 1
@@ -33,28 +28,28 @@ if not exist "%PROJECT_PATH%\.git" (
 cd /d "%PROJECT_PATH%"
 
 echo.
-echo ╔══════════════════════════════════════════╗
-echo ║     📋  BACKUP LIST v1.1                ║
-echo ╚══════════════════════════════════════════╝
+echo ========================================
+echo           BACKUP LIST v1.2
+echo ========================================
 echo.
 
-echo 📦 Теги бекапов:
-echo ─────────────────────────────────────────
+echo Backup tags:
+echo ----------------------------------------
 git tag -l "v-backup-*" --sort=-creatordate
 
 echo.
-echo 🌿 Ветки бекапов:
-echo ─────────────────────────────────────────
+echo Backup branches:
+echo ----------------------------------------
 git branch -a | findstr "backup/"
 
 echo.
-echo 🏷️  Версии (релизы):
-echo ─────────────────────────────────────────
+echo Releases:
+echo ----------------------------------------
 git tag -l "v1.*" --sort=-creatordate
 
 echo.
-echo 📊 Статус репозитория:
-echo ─────────────────────────────────────────
+echo Repository status:
+echo ----------------------------------------
 git status -s
 
 echo.
