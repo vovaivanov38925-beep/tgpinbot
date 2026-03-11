@@ -108,7 +108,7 @@ async function processMainReminders(now: Date): Promise<ReminderResult[]> {
 
 ${timeLabel}
 
-👉 <a href="https://t.me/tgpinbot">Открыть приложение</a>`
+👉 <a href="https://t.me/PinToActionBot">Открыть приложение</a>`
 
       const result = await sendTelegramMessage({ chat_id: chatId, text })
 
@@ -308,7 +308,7 @@ function formatSmartReminder(
 ${deadlineText[type]}
 📅 Срок: ${dateStr}
 
-👉 <a href="https://t.me/tgpinbot">Открыть приложение</a>`
+👉 <a href="https://t.me/PinToActionBot">Открыть приложение</a>`
 }
 
 function escapeHtml(text: string): string {

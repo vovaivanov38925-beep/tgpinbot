@@ -73,7 +73,7 @@ export async function sendTaskReminder(
 
 ${timeLabel}
 
-👉 <a href="https://t.me/tgpinbot">Открыть приложение</a>`
+👉 <a href="https://t.me/PinToActionBot">Открыть приложение</a>`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -174,7 +174,7 @@ export async function sendSmartReminder(
 ${deadlineText[reminderType]}
 📅 Срок: ${dateStr}
 
-👉 <a href="https://t.me/tgpinbot">Открыть приложение</a>`
+👉 <a href="https://t.me/PinToActionBot">Открыть приложение</a>`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
