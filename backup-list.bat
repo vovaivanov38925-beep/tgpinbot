@@ -1,16 +1,40 @@
 @echo off
 chcp 65001 >nul
+setlocal enabledelayedexpansion
 
 :: ============================================
 :: BACKUP LIST для tgpinbot
-:: Показывает список всех бекапов
+:: Можно запускать откуда угодно!
 :: ============================================
 
-cd /d "%~dp0"
+:: === НАСТРОЙКА: Укажи путь к проекту ===
+:: Если пусто - спросит при запуске
+set PROJECT_PATH=
+
+:: Если путь не задан выше - спрашиваем
+if "%PROJECT_PATH%"=="" (
+    echo.
+    set /p PROJECT_PATH="📁 Введи путь к проекту: "
+)
+
+:: Убираем кавычки если есть
+set PROJECT_PATH=%PROJECT_PATH:"=%
+
+:: Переходим в папку проекта
+if not exist "%PROJECT_PATH%\.git" (
+    echo.
+    echo ❌ Ошибка: В этой папке нет Git!
+    echo    Путь: %PROJECT_PATH%
+    echo.
+    pause
+    exit /b 1
+)
+
+cd /d "%PROJECT_PATH%"
 
 echo.
 echo ╔══════════════════════════════════════════╗
-echo ║     📋  BACKUP LIST                      ║
+echo ║     📋  BACKUP LIST v1.1                ║
 echo ╚══════════════════════════════════════════╝
 echo.
 
@@ -24,7 +48,7 @@ echo ─────────────────────────
 git branch -a | findstr "backup/"
 
 echo.
-echo 🏷️  Версии (v1.x.x):
+echo 🏷️  Версии (релизы):
 echo ─────────────────────────────────────────
 git tag -l "v1.*" --sort=-creatordate
 

@@ -4,15 +4,47 @@ setlocal enabledelayedexpansion
 
 :: ============================================
 :: BACKUP CREATOR для tgpinbot
-:: Создает тег и ветку бекапа перед изменениями
+:: Можно запускать откуда угодно!
 :: ============================================
 
-cd /d "%~dp0"
+:: === НАСТРОЙКА: Укажи путь к проекту ===
+:: Если пусто - спросит при запуске
+set PROJECT_PATH=
+
+:: Если путь не задан выше - спрашиваем
+if "%PROJECT_PATH%"=="" (
+    echo.
+    echo ╔══════════════════════════════════════════╗
+    echo ║     🛡️  BACKUP CREATOR v1.1              ║
+    echo ╚══════════════════════════════════════════╝
+    echo.
+    set /p PROJECT_PATH="📁 Введи путь к проекту: "
+)
+
+:: Убираем кавычки если есть
+set PROJECT_PATH=%PROJECT_PATH:"=%
+
+:: Переходим в папку проекта
+if not exist "%PROJECT_PATH%\.git" (
+    echo.
+    echo ❌ Ошибка: В этой папке нет Git!
+    echo    Путь: %PROJECT_PATH%
+    echo.
+    echo 💡 Укажи путь к папке где есть папка .git
+    echo    Пример: C:\Users\Name\Projects\tgpinbot
+    echo.
+    pause
+    exit /b 1
+)
+
+cd /d "%PROJECT_PATH%"
 
 echo.
 echo ╔══════════════════════════════════════════╗
-echo ║     🛡️  BACKUP CREATOR v1.0              ║
+echo ║     🛡️  BACKUP CREATOR v1.1              ║
 echo ╚══════════════════════════════════════════╝
+echo.
+echo 📁 Проект: %PROJECT_PATH%
 echo.
 
 :: Получаем текущую дату и время
@@ -34,17 +66,14 @@ echo 📝 Описание: %BACKUP_DESC%
 echo.
 
 :: Проверяем есть ли несохраненные изменения
-git status --porcelain >nul 2>&1
-if %errorlevel% equ 0 (
-    for /f %%A in ('git status --porcelain') do (
-        echo ⚠️  Есть несохраненные изменения!
-        set /p COMMIT_CHANGES="Сохранить изменения? (y/n): "
-        if /i "!COMMIT_CHANGES!"=="y" (
-            git add .
-            git commit -m "chore: auto-commit before backup %BACKUP_NAME%"
-            git push
-            echo ✅ Изменения сохранены
-        )
+for /f %%A in ('git status --porcelain') do (
+    echo ⚠️  Есть несохраненные изменения!
+    set /p COMMIT_CHANGES="Сохранить изменения? (y/n): "
+    if /i "!COMMIT_CHANGES!"=="y" (
+        git add .
+        git commit -m "chore: auto-commit before backup %BACKUP_NAME%"
+        git push
+        echo ✅ Изменения сохранены
     )
 )
 
@@ -59,6 +88,7 @@ if %errorlevel% neq 0 (
 )
 
 :: Пушим тег
+echo 📤 Отправка на GitHub...
 git push origin "v-%BACKUP_NAME%"
 if %errorlevel% neq 0 (
     echo ❌ Ошибка отправки тега
@@ -68,12 +98,12 @@ if %errorlevel% neq 0 (
 
 :: Создаем backup ветку
 echo 🌿 Создание ветки бекапа: backup/%BACKUP_NAME%
-git branch "backup/%BACKUP_NAME%"
-if %errorlevel% neq 0 (
-    echo ⚠️  Ветка уже существует или ошибка
-) else (
+git branch "backup/%BACKUP_NAME%" 2>nul
+if %errorlevel% equ 0 (
     git push origin "backup/%BACKUP_NAME%"
     echo ✅ Ветка бекапа создана
+) else (
+    echo ℹ️  Ветка уже существует
 )
 
 echo.
@@ -85,12 +115,6 @@ echo ║  Ветка: backup/%BACKUP_NAME%       ║
 echo ╚══════════════════════════════════════════╝
 echo.
 echo 💡 Для отката используй: backup-restore.bat
-echo.
-
-:: Показываем список последних бекапов
-echo 📋 Последние бекапы (теги):
-echo ─────────────────────────────────────────
-git tag -l "v-backup-*" --sort=-creatordate | head -n 10
 echo.
 
 pause
