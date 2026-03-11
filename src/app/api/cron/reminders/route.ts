@@ -93,7 +93,7 @@ async function processMainReminders(now: Date): Promise<ReminderResult[]> {
       }
 
       const timeLabel = task.reminderTime
-        ? `🕐 ${task.reminderTime.toLocaleDateString('ru-RU', {
+        ? `🕐 ${task.reminderTime.toLocaleString('ru-RU', {
             day: 'numeric',
             month: 'long',
             hour: '2-digit',
@@ -292,7 +292,7 @@ function formatSmartReminder(
     '15_min': '🕐 Осталось 15 минут',
   }
 
-  const dateStr = dueDate.toLocaleDateString('ru-RU', {
+  const dateStr = dueDate.toLocaleString('ru-RU', {
     day: 'numeric',
     month: 'long',
     hour: '2-digit',

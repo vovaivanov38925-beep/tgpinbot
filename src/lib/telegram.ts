@@ -58,7 +58,7 @@ export async function sendTaskReminder(
   reminderTime?: Date | null
 ): Promise<TelegramResponse> {
   const timeLabel = reminderTime
-    ? `🕐 ${reminderTime.toLocaleDateString('ru-RU', {
+    ? `🕐 ${reminderTime.toLocaleString('ru-RU', {
         day: 'numeric',
         month: 'long',
         hour: '2-digit',
@@ -158,7 +158,7 @@ export async function sendSmartReminder(
     '15_min': '🕐 Осталось 15 минут',
   }
 
-  const dateStr = dueDate.toLocaleDateString('ru-RU', {
+  const dateStr = dueDate.toLocaleString('ru-RU', {
     day: 'numeric',
     month: 'long',
     hour: '2-digit',
