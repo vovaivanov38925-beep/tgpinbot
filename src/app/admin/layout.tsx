@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   Shield,
-  Pin
+  Pin,
+  Megaphone
 } from 'lucide-react'
 
 interface AdminData {
@@ -71,6 +72,7 @@ export default function AdminLayout({
     { href: '/admin', icon: LayoutDashboard, label: 'Дашборд' },
     { href: '/admin/users', icon: Users, label: 'Пользователи' },
     { href: '/admin/pins', icon: Pin, label: 'Пины' },
+    { href: '/admin/marketing', icon: Megaphone, label: 'Маркетинг' },
     { href: '/admin/logs', icon: FileText, label: 'Логи' },
     { href: '/admin/payments', icon: CreditCard, label: 'Оплата' },
     { href: '/admin/settings', icon: Settings, label: 'Настройки' },

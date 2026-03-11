@@ -232,10 +232,94 @@ model BotLog {
   requestId   String?
   duration    Int?     // milliseconds
   createdAt   DateTime @default(now())
-  
+
   @@index([level])
   @@index([source])
   @@index([createdAt])
   @@index([telegramId])
   @@map("bot_logs")
+}
+
+// Рекламные интеграции
+model Ad {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   // Текст рекламы (HTML)
+  imageUrl    String?  // Картинка (опционально)
+  linkUrl     String?  // Ссылка (опционально)
+  buttonText  String?  // Текст кнопки
+
+  // Таргетинг
+  targetAll       Boolean  @default(true)   // Всем пользователям
+  targetPremium   Boolean  @default(false)  // Только премиум
+  targetFree      Boolean  @default(false)  // Только бесплатные
+
+  // Статус
+  status      String   @default("draft") // draft, scheduled, active, completed, paused
+  scheduledAt DateTime? // Когда запланирована публикация
+
+  // Статистика
+  sentCount   Int      @default(0)  // Количество отправок
+  clickCount  Int      @default(0)  // Количество кликов
+
+  createdBy   String?  // ID админа
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("ads")
+}
+
+// Рассылки
+model Broadcast {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   // Текст рассылки (HTML)
+  imageUrl    String?  // Картинка (опционально)
+
+  // Таргетинг
+  targetAll       Boolean  @default(true)   // Всем пользователям
+  targetPremium   Boolean  @default(false)  // Только премиум
+  targetFree      Boolean  @default(false)  // Только бесплатные
+
+  // Статус
+  status      String   @default("draft") // draft, sending, sent, failed
+  scheduledAt DateTime? // Когда запланирована рассылка
+  startedAt   DateTime? // Когда началась рассылка
+  completedAt DateTime? // Когда завершилась
+
+  // Статистика
+  totalRecipients  Int  @default(0)  // Всего получателей
+  sentCount        Int  @default(0)  // Успешно отправлено
+  failedCount      Int  @default(0)  // Ошибок
+
+  createdBy   String?  // ID админа
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Детали отправки
+  broadcastLogs BroadcastLog[]
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("broadcasts")
+}
+
+// Логи рассылок (для отслеживания отправки каждому пользователю)
+model BroadcastLog {
+  id            String   @id @default(cuid())
+  broadcastId   String
+  userId        String
+  telegramId    String
+  status        String   @default("pending") // pending, sent, failed
+  error         String?
+  sentAt        DateTime?
+
+  broadcast     Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, userId])
+  @@index([broadcastId])
+  @@index([status])
+  @@map("broadcast_logs")
 }
