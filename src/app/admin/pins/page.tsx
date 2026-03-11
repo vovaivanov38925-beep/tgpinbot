@@ -88,7 +88,7 @@ export default function AdminPinsPage() {
 
   useEffect(() => {
     void fetchPins(1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [categoryFilter])
 
   const handleSearch = (e: React.FormEvent) => {

@@ -37,7 +37,6 @@ export default function AdminLayout({
   useEffect(() => {
     // Skip auth check on login page
     if (pathname === '/admin/login') {
-      setLoading(false)
       return
     }
 
@@ -61,8 +60,7 @@ export default function AdminLayout({
       })
 
     return () => { mounted = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname])
+  }, [pathname, router])
 
   const handleLogout = async () => {
     await fetch('/api/admin/auth/logout', { method: 'POST' })

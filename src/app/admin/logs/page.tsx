@@ -70,7 +70,7 @@ export default function AdminLogsPage() {
 
   useEffect(() => {
     void fetchLogs(1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [filters])
 
   const handleFilterChange = (key: string, value: string) => {
