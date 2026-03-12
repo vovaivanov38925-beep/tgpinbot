@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { addPointsToUser, checkAndAwardAchievements, POINTS } from '@/lib/notifications'
 import { logger } from '@/lib/logger'
-import { checkPinsLimit, getUserLimits } from '@/lib/limits'
+import { checkPinsLimit } from '@/lib/limits'
 
 // GET - Get all pins for a user
 export async function GET(request: NextRequest) {
@@ -77,11 +76,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user limits for points multiplier
-    const userLimits = await getUserLimits(userId)
-    const pointsToAdd = POINTS.PIN_CREATED * userLimits.pointsMultiplier
-
-    // Create pin
+    // Create pin (no points for just saving - points only for completed tasks)
     const pin = await db.pin.create({
       data: {
         userId,
@@ -90,35 +85,20 @@ export async function POST(request: NextRequest) {
         description: description || null,
         category: category || null,
         sourceUrl: sourceUrl || null,
-        points: pointsToAdd,
+        points: 0, // No points for just saving
       },
     })
-
-    // Add points
-    const { newLevel, levelUp } = await addPointsToUser(userId, pointsToAdd, 'pin_created')
-
-    // Check achievements
-    const { newAchievements, totalPoints: achievementPoints } = await checkAndAwardAchievements(userId)
-    if (achievementPoints > 0) {
-      await addPointsToUser(userId, achievementPoints * userLimits.pointsMultiplier, 'achievement')
-    }
 
     await logger.info('api', 'Pin created', {
       pinId: pin.id,
       category,
       userId,
-      pointsEarned: pointsToAdd + achievementPoints,
-      levelUp,
-      achievements: newAchievements.length,
-      isPremium: userLimits.isPremium,
+      isPremium: false,
     })
 
     return NextResponse.json({
       ...pin,
-      points: pointsToAdd + achievementPoints,
-      levelUp,
-      newLevel: levelUp ? newLevel : undefined,
-      newAchievements,
+      points: 0,
       limits: {
         current: limitsCheck.current + 1,
         limit: limitsCheck.limit,

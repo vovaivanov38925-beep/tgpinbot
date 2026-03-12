@@ -105,9 +105,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user limits for points multiplier
+    // Get user limits
     const userLimits = await getUserLimits(userId)
-    const pointsMultiplier = userLimits.pointsMultiplier
 
     // Clean board URL
     const cleanBoardUrl = boardUrl.split('?')[0].replace(/\/$/, '')
@@ -148,8 +147,8 @@ export async function POST(request: NextRequest) {
       ? newPins
       : newPins.slice(0, userLimits.maxPinsPerSync)
 
-    // Create new pins
-    const createdPins: Array<{ points: number }> = []
+    // Create new pins (no points for just adding pins - points only for completed tasks)
+    const createdPins: Array<{ id: string }> = []
     for (const pin of pinsToAdd) {
       try {
         const category = categorizePin(pin.title, pin.description)
@@ -162,7 +161,7 @@ export async function POST(request: NextRequest) {
             description: pin.description,
             sourceUrl: pin.sourceUrl || cleanBoardUrl,
             category,
-            points: 10 * pointsMultiplier, // Apply multiplier
+            points: 0, // No points for just saving - points only for completing tasks
           },
         })
 
@@ -170,19 +169,6 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         console.error('Failed to create pin:', e)
       }
-    }
-
-    // Calculate points earned
-    const pointsEarned = createdPins.reduce((sum, pin) => sum + pin.points, 0)
-
-    // Update user points if any pins were added
-    if (pointsEarned > 0) {
-      await db.user.update({
-        where: { id: userId },
-        data: {
-          points: { increment: pointsEarned },
-        },
-      })
     }
 
     // Update PinterestBoard record
@@ -202,7 +188,6 @@ export async function POST(request: NextRequest) {
       boardUrl: cleanBoardUrl,
       totalPins: pins.length,
       newPins: createdPins.length,
-      pointsEarned,
       isPremium: userLimits.isPremium
     })
 
@@ -211,7 +196,7 @@ export async function POST(request: NextRequest) {
       totalPins: pins.length,
       existingPins: pins.length - newPins.length,
       newPinsAdded: createdPins.length,
-      pointsEarned,
+      pointsEarned: 0, // No points for syncing
       limits: {
         pinsRemaining: pinsLimit.remaining - createdPins.length,
         boardsSyncRemaining: boardsSyncLimit.remaining - 1
