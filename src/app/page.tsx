@@ -222,6 +222,12 @@ export default function PinterestApp() {
         })
         const userData = await userRes.json()
         console.log('User data from API:', userData)
+
+        if (!userRes.ok || !userData.id) {
+          console.error('Failed to get/create user:', userData)
+          throw new Error(userData.error || 'Failed to create user')
+        }
+
         setUser(userData)
 
         // Get categories
@@ -453,16 +459,7 @@ export default function PinterestApp() {
       {/* Предупреждение для гостей */}
       {isGuest && (
         <div className="bg-amber-500/90 text-white px-4 py-2 text-center text-sm shrink-0">
-          ⚠️ <strong>Демо-режим</strong> —{' '}
-          <a
-            href="https://t.me/PinToActionBot?startapp=1"
-            className="underline font-medium hover:no-underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            откройте через Telegram бота
-          </a>{' '}
-          для полного доступа
+          ⚠️ <strong>Демо-режим</strong> — откройте приложение через Telegram бота для полного доступа
         </div>
       )}
       {/* Header */}
