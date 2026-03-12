@@ -662,7 +662,7 @@ export default function PinterestApp() {
   const isGuest = user?.telegramId === 'demo_user'
 
   return (
-    <div className="h-dvh overflow-hidden gradient-pink flex flex-col">
+    <div className="h-dvh overflow-hidden overflow-x-hidden gradient-pink flex flex-col">
       {/* Предупреждение для гостей */}
       {isGuest && (
         <div className="bg-amber-500/90 text-white px-4 py-2 text-center text-sm shrink-0">
@@ -739,10 +739,10 @@ export default function PinterestApp() {
 
           {/* Pins Tab */}
           <TabsContent value="pins" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-            <ScrollArea className="flex-1 h-0">
-              <div className="space-y-4 pr-2 pb-4">
+            <ScrollArea className="flex-1 h-0 w-full overflow-x-hidden">
+              <div className="space-y-4 pr-2 pb-4 w-full max-w-full">
                 {/* Boards Section */}
-                <div>
+                <div className="w-full">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-semibold flex items-center gap-2">
                       <Layers className="w-5 h-5 text-blue-500" />
@@ -760,7 +760,7 @@ export default function PinterestApp() {
                   </div>
 
                   {boards.length === 0 ? (
-                    <Card className="border-dashed border-blue-500/30 bg-blue-500/5">
+                    <Card className="border-dashed border-blue-500/30 bg-blue-500/5 w-full">
                       <CardContent className="p-4 text-center">
                         <p className="text-sm text-muted-foreground mb-2">Нет подключённых досок</p>
                         <p className="text-xs text-muted-foreground/70">
@@ -769,16 +769,16 @@ export default function PinterestApp() {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-2 w-full">
                       {boards.map((board) => (
-                        <Card key={board.id} className="border-blue-500/20 hover:shadow-lg transition-all duration-300">
-                          <CardContent className="p-3">
+                        <Card key={board.id} className="border-blue-500/20 hover:shadow-lg transition-all duration-300 w-full overflow-hidden">
+                          <CardContent className="p-3 overflow-hidden">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
                                 <Layers className="w-5 h-5 text-blue-500" />
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">{board.boardName || 'Доска без названия'}</p>
+                              <div className="flex-1 min-w-0 overflow-hidden">
+                                <p className="font-medium text-sm truncate w-full">{board.boardName || 'Доска без названия'}</p>
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                                   <span className="flex items-center gap-1">
                                     <PinIcon className="w-3 h-3" />
@@ -824,7 +824,7 @@ export default function PinterestApp() {
                 </div>
 
                 {/* Pins Section */}
-                <div>
+                <div className="w-full">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-semibold">Мои пины</h3>
                     <Button
@@ -848,18 +848,18 @@ export default function PinterestApp() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 w-full">
                       {pins.map((pin, index) => (
                         <Card
                           key={pin.id || `pin-${index}`}
-                          className="overflow-hidden cursor-pointer hover:shadow-pink transition-all duration-300 border-pink/10"
+                          className="overflow-hidden cursor-pointer hover:shadow-pink transition-all duration-300 border-pink/10 w-full"
                           onClick={() => setSelectedPin(pin)}
                         >
-                          <div className="aspect-square relative">
+                          <div className="aspect-square relative w-full overflow-hidden">
                             <img
                               src={pin.imageUrl}
                               alt={pin.title || 'Pin'}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover max-w-full"
                             />
                             {pin.isCompleted && (
                               <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
@@ -875,9 +875,9 @@ export default function PinterestApp() {
                               </div>
                             )}
                           </div>
-                          <CardContent className="p-3">
-                            <p className="font-medium text-sm truncate">{pin.title}</p>
-                            <p className="text-xs text-muted-foreground truncate">{pin.description}</p>
+                          <CardContent className="p-3 overflow-hidden">
+                            <p className="font-medium text-sm truncate w-full">{pin.title}</p>
+                            <p className="text-xs text-muted-foreground truncate w-full">{pin.description}</p>
                           </CardContent>
                         </Card>
                       ))}
