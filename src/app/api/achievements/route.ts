@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+// Тип для результата разблокировки достижения
+interface UnlockResult {
+  id: string
+  userId: string
+  achievementId: string
+  unlockedAt: Date
+  achievement: {
+    id: string
+    name: string
+    description: string
+    icon: string
+    category: string
+    requirement: number
+    points: number
+  }
+}
+
 // GET - Get all achievements or user achievements
 export async function GET(request: NextRequest) {
   try {
@@ -116,7 +133,7 @@ export async function PATCH(request: NextRequest) {
     const allAchievements = await db.achievement.findMany()
     const unlockedIds = user.achievements.map(a => a.achievementId)
 
-    const newUnlocks = []
+    const newUnlocks: UnlockResult[] = []
 
     // Check pin achievements
     const pinAchievements = allAchievements.filter(a => a.category === 'pins')

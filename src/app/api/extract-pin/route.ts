@@ -204,9 +204,11 @@ export async function POST(request: NextRequest) {
             const data = await response.json()
             const pin = data.data?.[0]
             if (pin?.images) {
-              imageUrl = pin.images.orig?.url || 
-                        pin.images['564x']?.url ||
-                        Object.values(pin.images)[0]?.url
+              // Тип для images из Pinterest API
+              const images = pin.images as Record<string, { url: string }>
+              imageUrl = images.orig?.url || 
+                        images['564x']?.url ||
+                        Object.values(images)[0]?.url
             }
             if (pin?.title && !title) {
               title = pin.title

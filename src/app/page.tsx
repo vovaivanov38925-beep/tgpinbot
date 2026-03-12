@@ -139,7 +139,7 @@ export default function PinterestApp() {
   const [isAddingPin, setIsAddingPin] = useState(false)
   const isAddingTaskRef = useRef(false) // Для мгновенной блокировки
   const lastTaskAddTimeRef = useRef(0) // Для защиты от быстрых кликов
-  const [extractedData, setExtractedData] = useState<{imageUrl: string, title: string | null, description: string | null} | null>(null)
+  const [extractedData, setExtractedData] = useState<{imageUrl: string, title: string | null, description: string | null, sourceUrl: string | null} | null>(null)
   const [levelProgress, setLevelProgress] = useState(0)
 
   // Initialize data
@@ -276,12 +276,12 @@ export default function PinterestApp() {
       } else if (data.error) {
         console.log('Extract error:', data.error)
         // If extraction failed, try to use URL directly
-        setExtractedData({ imageUrl: url, title: null, description: null })
+        setExtractedData({ imageUrl: url, title: null, description: null, sourceUrl: url })
       }
     } catch (error) {
       console.error('Error extracting:', error)
       // Fallback to using URL directly
-      setExtractedData({ imageUrl: url, title: null, description: null })
+      setExtractedData({ imageUrl: url, title: null, description: null, sourceUrl: url })
     } finally {
       setIsExtracting(false)
     }
@@ -356,7 +356,7 @@ export default function PinterestApp() {
 
     try {
       // Combine date and time for reminder (keep local time, don't convert to UTC)
-      let reminderTime = null
+      let reminderTime: string | null = null
       if (newTaskDueDate && newTaskReminderTime) {
         reminderTime = `${newTaskDueDate}T${newTaskReminderTime}:00`
       } else if (newTaskDueDate) {

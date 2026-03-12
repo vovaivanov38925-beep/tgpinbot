@@ -1,7 +1,7 @@
 import { db } from './db'
 
 export type LogLevel = 'info' | 'warning' | 'error' | 'debug'
-export type LogSource = 'telegram' | 'api' | 'database' | 'scheduler' | 'payment' | 'extract' | 'ai' | 'admin' | 'pinterest'
+export type LogSource = 'telegram' | 'api' | 'database' | 'scheduler' | 'payment' | 'extract' | 'ai' | 'admin' | 'pinterest' | 'gamification'
 
 interface LogOptions {
   level: LogLevel
