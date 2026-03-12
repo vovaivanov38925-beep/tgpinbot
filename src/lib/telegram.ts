@@ -210,3 +210,119 @@ export async function getBotInfo(): Promise<TelegramResponse> {
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
+
+/**
+ * Удалить сообщение в Telegram
+ */
+export async function deleteTelegramMessage(
+  chatId: string | number,
+  messageId: number
+): Promise<TelegramResponse> {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+      }),
+    })
+
+    return await response.json()
+  } catch (error) {
+    console.error('Failed to delete Telegram message:', error)
+    return { ok: false, description: String(error) }
+  }
+}
+
+/**
+ * Получить ID сообщения из ответа Telegram API
+ */
+export function getMessageIdFromResponse(response: TelegramResponse): number | null {
+  if (response.ok && response.result && typeof response.result === 'object') {
+    const result = response.result as { message_id?: number }
+    return result.message_id || null
+  }
+  return null
+}
+
+/**
+ * Отправить уведомление о синхронизации Pinterest
+ */
+export async function sendPinterestSyncNotification(
+  chatId: string | number,
+  boardName: string | null,
+  totalPins: number,
+  newPins: number,
+  pointsEarned: number
+): Promise<TelegramResponse> {
+  const text = `📥 <b>Синхронизация завершена!</b>
+
+${boardName ? `📋 Доска: <b>${escapeHtml(boardName)}</b>` : ''}
+📊 Всего пинов на доске: ${totalPins}
+✨ Новых пинов добавлено: ${newPins}
+⭐ Очков заработано: +${pointsEarned}
+
+${newPins > 0 ? 'Открой приложение, чтобы увидеть новые идеи! 🎨' : 'Все пины уже были сохранены ранее.'}`
+
+  return sendTelegramMessage({ chat_id: chatId, text })
+}
+
+/**
+ * Отправить уведомление об ошибке синхронизации
+ */
+export async function sendPinterestSyncError(
+  chatId: string | number,
+  errorMessage: string
+): Promise<TelegramResponse> {
+  const text = `❌ <b>Ошибка синхронизации</b>
+
+${escapeHtml(errorMessage)}
+
+Проверь правильность ссылки на доску Pinterest.
+Формат: pinterest.com/username/board-name`
+
+  return sendTelegramMessage({ chat_id: chatId, text })
+}
+
+/**
+ * Отправить список подключённых досок
+ */
+export async function sendConnectedBoardsList(
+  chatId: string | number,
+  boards: Array<{
+    id: string
+    boardName: string | null
+    boardUrl: string
+    totalPins: number
+    lastSyncAt: Date | null
+  }>
+): Promise<TelegramResponse> {
+  if (boards.length === 0) {
+    const text = `📥 <b>Подключённые доски</b>
+
+У тебя пока нет подключённых досок Pinterest.
+
+Отправь ссылку на доску в формате:
+pinterest.com/username/board-name`
+
+    return sendTelegramMessage({ chat_id: chatId, text })
+  }
+
+  const boardsList = boards.map((board, index) => {
+    const syncDate = board.lastSyncAt
+      ? board.lastSyncAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+      : 'не синхронизирована'
+
+    return `${index + 1}. ${board.boardName || 'Без названия'}
+   📊 ${board.totalPins} пинов | 🔄 ${syncDate}`
+  }).join('\n\n')
+
+  const text = `📥 <b>Подключённые доски (${boards.length})</b>
+
+${boardsList}
+
+Для повторной синхронизации отправь ссылку на доску.`
+
+  return sendTelegramMessage({ chat_id: chatId, text })
+}

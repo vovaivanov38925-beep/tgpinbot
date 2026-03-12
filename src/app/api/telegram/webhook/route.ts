@@ -1,9 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendTelegramMessage, setTelegramWebhook } from '@/lib/telegram'
+import { 
+  sendTelegramMessage, 
+  setTelegramWebhook,
+  sendPinterestSyncNotification,
+  sendPinterestSyncError,
+  sendConnectedBoardsList
+} from '@/lib/telegram'
 import { logger } from '@/lib/logger'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8720645134:AAGOCNBOO4MqgfB10C5FfKnx1vg9oO-SuZc'
+
+/**
+ * Отправить сообщение с клавиатурой меню
+ */
+async function sendTelegramMessageWithKeyboard(chatId: number, text: string) {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        reply_markup: {
+          keyboard: [
+            [
+              { text: '📥 Синхронизировать доску' },
+              { text: '📥 Мои доски' }
+            ],
+            [
+              { text: '📊 Моя статистика' },
+              { text: '❓ Помощь' }
+            ]
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: false,
+        },
+      }),
+    })
+
+    return await response.json()
+  } catch (error) {
+    console.error('Failed to send message with keyboard:', error)
+    // Fallback to simple message
+    return sendTelegramMessage({ chat_id: chatId, text })
+  }
+}
 
 interface TelegramUpdate {
   update_id: number
@@ -66,15 +110,33 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true })
       }
 
-      // Команда /help
-      if (text === '/help') {
+      // Команда /stats или кнопка "Моя статистика"
+      if (text === '/stats' || text.includes('моя статистика')) {
+        await handleStatsCommand(chatId, from?.id)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Команда /help или кнопка "Помощь"
+      if (text === '/help' || text.includes('помощь')) {
         await handleHelpCommand(chatId)
         return NextResponse.json({ ok: true })
       }
 
-      // Команда /stats
-      if (text === '/stats') {
-        await handleStatsCommand(chatId, from?.id)
+      // Команда /sync или кнопка "Синхронизировать доску"
+      if (text === '/sync' || text.includes('синхронизировать')) {
+        await handleSyncRequest(chatId)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Команда /boards или кнопка "Мои доски"
+      if (text === '/boards' || text.includes('мои доски')) {
+        await handleMyBoardsCommand(chatId, from?.id)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Проверка на ссылку Pinterest доски
+      if (text.includes('pinterest.')) {
+        await handlePinterestUrl(chatId, body.message.text.trim(), from?.id)
         return NextResponse.json({ ok: true })
       }
 
@@ -155,7 +217,7 @@ export async function GET(request: NextRequest) {
 /**
  * Обработка команды /start
  */
-async function handleStartCommand(chatId: number, from?: TelegramUpdate['message']['from']) {
+async function handleStartCommand(chatId: number, from?: { id: number; is_bot: boolean; first_name: string; last_name?: string; username?: string; language_code?: string }) {
   if (!from) {
     await sendTelegramMessage({
       chat_id: chatId,
@@ -199,18 +261,17 @@ async function handleStartCommand(chatId: number, from?: TelegramUpdate['message
 
 📌 <b>Что я умею:</b>
 • Сохранять идеи из Pinterest
+• Синхронизировать доски Pinterest
 • Напоминать о задачах
 • Отслеживать прогресс и достижения
 
 🔔 <b>Уведомления включены!</b>
 Теперь я буду присылать напоминания о твоих задачах.
 
-👇 Открой Mini App через кнопку ниже или напиши /help для списка команд.`
+👇 Открой Mini App через кнопку в меню или используй кнопки ниже!`
 
-    await sendTelegramMessage({
-      chat_id: chatId,
-      text: welcomeText,
-    })
+    // Отправляем сообщение с клавиатурой
+    await sendTelegramMessageWithKeyboard(chatId, welcomeText)
   } catch (error) {
     console.error('Error in start command:', error)
     await logger.error('telegram', 'Error in start command', { error: String(error), telegramId })
@@ -231,12 +292,19 @@ async function handleHelpCommand(chatId: number) {
 /start — Начать работу и включить уведомления
 /help — Показать эту справку
 /stats — Твоя статистика
+/sync — Синхронизировать доску Pinterest
+/boards — Список подключённых досок
 
 📌 <b>Как пользоваться:</b>
 1. Открой Mini App через кнопку в меню
 2. Добавляй идеи из Pinterest
-3. Создавай задачи с напоминаниями
-4. Получай уведомления вовремя!
+3. Синхронизируй свои доски Pinterest
+4. Создавай задачи с напоминаниями
+5. Получай уведомления вовремя!
+
+📥 <b>Синхронизация Pinterest:</b>
+Просто отправь ссылку на публичную доску Pinterest:
+pinterest.com/username/board-name
 
 💡 Вопросы? Пиши в поддержку!`
 
@@ -300,5 +368,153 @@ ${user.isPremium ? '\n👑 Статус: <b>Premium</b>' : ''}
       chat_id: chatId,
       text: '❌ Ошибка получения статистики.',
     })
+  }
+}
+
+/**
+ * Запрос на синхронизацию - показать инструкции
+ */
+async function handleSyncRequest(chatId: number) {
+  const text = `📥 <b>Синхронизация с Pinterest</b>
+
+Чтобы импортировать идеи из доски Pinterest:
+
+1️⃣ Открой доску в Pinterest
+2️⃣ Скопируй ссылку на доску
+3️⃣ Отправь ссылку мне в чат
+
+<b>Формат ссылки:</b>
+pinterest.com/username/board-name
+
+💡 Все пины с доски будут добавлены в твою коллекцию!`
+
+  await sendTelegramMessage({ chat_id: chatId, text })
+}
+
+/**
+ * Показать подключённые доски пользователя
+ */
+async function handleMyBoardsCommand(chatId: number, telegramUserId?: number) {
+  if (!telegramUserId) {
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Не могу определить твой аккаунт. Напиши /start',
+    })
+    return
+  }
+
+  try {
+    const user = await db.user.findUnique({
+      where: { telegramId: String(telegramUserId) },
+      include: {
+        pinterestBoards: {
+          orderBy: { lastSyncAt: 'desc' },
+        },
+      },
+    })
+
+    if (!user) {
+      await sendTelegramMessage({
+        chat_id: chatId,
+        text: '❌ Аккаунт не найден. Напиши /start для регистрации.',
+      })
+      return
+    }
+
+    await sendConnectedBoardsList(chatId, user.pinterestBoards)
+  } catch (error) {
+    console.error('Error in boards command:', error)
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Ошибка получения списка досок.',
+    })
+  }
+}
+
+/**
+ * Обработка ссылки на Pinterest доску - синхронизация
+ */
+async function handlePinterestUrl(chatId: number, originalUrl: string, telegramUserId?: number) {
+  if (!telegramUserId) {
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Не могу определить твой аккаунт. Напиши /start для регистрации.',
+    })
+    return
+  }
+
+  // Отправляем сообщение о начале синхронизации
+  await sendTelegramMessage({
+    chat_id: chatId,
+    text: '🔄 <b>Начинаю синхронизацию...</b>\n\nЭто может занять несколько секунд.',
+  })
+
+  try {
+    // Находим пользователя
+    const user = await db.user.findUnique({
+      where: { telegramId: String(telegramUserId) },
+    })
+
+    if (!user) {
+      await sendTelegramMessage({
+        chat_id: chatId,
+        text: '❌ Аккаунт не найден. Напиши /start для регистрации.',
+      })
+      return
+    }
+
+    // Скрейпим доску Pinterest
+    const scrapeResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://tgpinbot-production.up.railway.app'}/api/pinterest/scrape`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ boardUrl: originalUrl }),
+    })
+
+    const scrapeResult = await scrapeResponse.json()
+
+    if (!scrapeResult.success || scrapeResult.pins.length === 0) {
+      await sendPinterestSyncError(chatId, scrapeResult.error || 'Не удалось найти пины на доске')
+      return
+    }
+
+    // Синхронизируем пины с базой
+    const syncResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://tgpinbot-production.up.railway.app'}/api/pinterest/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        boardUrl: originalUrl,
+        pins: scrapeResult.pins,
+        boardName: scrapeResult.boardName,
+        boardUsername: scrapeResult.boardUsername,
+      }),
+    })
+
+    const syncResult = await syncResponse.json()
+
+    if (!syncResult.success) {
+      await sendPinterestSyncError(chatId, syncResult.error || 'Ошибка синхронизации')
+      return
+    }
+
+    // Отправляем уведомление о результате
+    await sendPinterestSyncNotification(
+      chatId,
+      syncResult.board?.name || scrapeResult.boardName,
+      syncResult.totalPins,
+      syncResult.newPinsAdded,
+      syncResult.pointsEarned
+    )
+
+    await logger.info('telegram', 'Pinterest board synced', {
+      telegramUserId,
+      boardUrl: originalUrl,
+      pinsCount: scrapeResult.pins.length,
+      newPins: syncResult.newPinsAdded,
+    })
+  } catch (error) {
+    console.error('Error syncing Pinterest board:', error)
+    await sendPinterestSyncError(chatId, 'Произошла ошибка при синхронизации. Попробуй позже.')
+    await logger.error('telegram', 'Pinterest sync error', { error: String(error), telegramUserId })
   }
 }
