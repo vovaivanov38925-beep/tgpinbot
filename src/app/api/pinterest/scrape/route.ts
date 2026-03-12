@@ -227,7 +227,7 @@ function extractPinsFromPwsData(data: any): ScrapedPin[] {
       if (seenIds.has(obj.id)) return;
       seenIds.add(obj.id);
 
-      let imageUrl = null;
+      let imageUrl: string | null = null;
 
       // Try different image formats
       if (obj.images?.orig?.url) {
