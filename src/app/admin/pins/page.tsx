@@ -66,7 +66,9 @@ export default function AdminPinsPage() {
     if (categoryFilter) params.set('category', categoryFilter)
 
     try {
-      const res = await fetch(`/api/admin/pins?${params}`)
+      const res = await fetch(`/api/admin/pins?${params}`, {
+        credentials: 'include'
+      })
       console.log('Admin pins response status:', res.status)
       const data = await res.json()
       console.log('Admin pins response data:', data)

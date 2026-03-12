@@ -4,7 +4,11 @@ import { getCurrentAdmin, logAdminAction } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('Admin pins API: Starting request')
+    
     const admin = await getCurrentAdmin()
+    console.log('Admin pins API: Admin check result:', admin ? `id=${admin.id}, username=${admin.username}` : 'null')
+    
     if (!admin) {
       console.log('Admin pins: Unauthorized - no admin session')
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
@@ -34,7 +38,7 @@ export async function GET(request: NextRequest) {
       where.userId = userId
     }
 
-    console.log('Admin pins: Fetching pins with filters:', { page, limit, search, category, userId })
+    console.log('Admin pins: Fetching pins with filters:', { page, limit, search, category, userId, where })
 
     const [pins, total] = await Promise.all([
       db.pin.findMany({
