@@ -1471,7 +1471,7 @@ export default function PinterestApp() {
                   Найдено пинов: <span className="font-semibold text-blue-500">{scrapedBoardData.pins.length}</span>
                 </p>
                 <p className="text-xs text-amber-600 dark:text-amber-400 break-words">
-                  ⚠️ Pinterest загружает не все пины сразу. Если пинов меньше чем в оригинале, синхронизируйте доску позже ещё раз.
+                  ⚠️ Pinterest показывает только ~15 пинов при первой загрузке. Для синхронизации всех пинов повторяйте синхронизацию несколько раз.
                 </p>
               </div>
             )}
