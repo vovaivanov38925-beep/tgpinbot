@@ -139,8 +139,8 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Если пользователь пишет сообщение в поддержку
-        if (user.botState === 'support:waiting') {
+        // Если пользователь пишет сообщение в поддержку (после выбора категории)
+        if (user.botState.startsWith('support:waiting')) {
           await handleSupportMessage(chatId, from?.id, text)
           return NextResponse.json({ ok: true })
         }
