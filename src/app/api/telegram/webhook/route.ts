@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendTelegramMessage, setTelegramWebhook, getMainKeyboard, getMiniAppButton } from '@/lib/telegram'
+import { sendTelegramMessage, setTelegramWebhook, getMainKeyboard, getMiniAppButton, deleteTelegramMessage, getMessageIdFromResponse } from '@/lib/telegram'
 import { logger } from '@/lib/logger'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!
@@ -106,6 +106,12 @@ export async function POST(request: NextRequest) {
       // Кнопка "Мои обращения"
       if (text === '📋 Мои обращения') {
         await handleMyTicketsCommand(chatId, from?.id)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Кнопка "Очистить чат"
+      if (text === '🗑 Очистить чат') {
+        await handleClearChat(chatId, from?.id)
         return NextResponse.json({ ok: true })
       }
 
@@ -1359,6 +1365,87 @@ ${message}
     await sendTelegramMessage({
       chat_id: chatId,
       text: '❌ Ошибка отправки ответа.',
+    })
+  }
+}
+
+/**
+ * Очистка чата - удаление всех сообщений бота
+ */
+async function handleClearChat(chatId: number, telegramUserId?: number) {
+  if (!telegramUserId) {
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Не могу определить твой аккаунт.',
+      reply_markup: getMainKeyboard(),
+    })
+    return
+  }
+
+  try {
+    // Получаем все сохранённые сообщения бота для этого чата
+    const botMessages = await db.botMessage.findMany({
+      where: {
+        chatId: String(chatId),
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    let deletedCount = 0
+    let failedCount = 0
+
+    // Удаляем каждое сообщение
+    for (const msg of botMessages) {
+      const result = await deleteTelegramMessage(chatId, msg.messageId)
+      if (result.ok) {
+        deletedCount++
+      } else {
+        failedCount++
+      }
+      // Небольшая пауза чтобы не превысить лимиты API
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+
+    // Удаляем записи из базы
+    await db.botMessage.deleteMany({
+      where: { chatId: String(chatId) },
+    })
+
+    // Отправляем подтверждение
+    const response = await sendTelegramMessage({
+      chat_id: chatId,
+      text: `🗑 <b>Чат очищен!</b>
+
+✅ Удалено сообщений бота: ${deletedCount}
+${failedCount > 0 ? `⚠️ Не удалось удалить: ${failedCount}` : ''}
+
+💡 <i>Твои сообщения не были удалены — их можно удалить вручную или они исчезнут через 48 часов.</i>`,
+      reply_markup: getMainKeyboard(),
+    })
+
+    // Сохраняем ID этого сообщения для будущей очистки
+    const messageId = getMessageIdFromResponse(response)
+    if (messageId) {
+      await db.botMessage.create({
+        data: {
+          telegramId: String(telegramUserId),
+          chatId: String(chatId),
+          messageId,
+        },
+      })
+    }
+
+    await logger.info('telegram', 'Chat cleared', {
+      telegramUserId,
+      chatId,
+      deletedCount,
+    })
+  } catch (error) {
+    console.error('Error clearing chat:', error)
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Ошибка при очистке чата.',
+      reply_markup: getMainKeyboard(),
     })
   }
 }

@@ -25,7 +25,7 @@ interface TelegramMessage {
 
 interface TelegramResponse {
   ok: boolean
-  result?: unknown
+  result?: { message_id?: number } & Record<string, unknown>
   description?: string
   error_code?: number
 }
@@ -69,6 +69,7 @@ export function getMainKeyboard() {
       [{ text: '📱 Открыть приложение' }],
       [{ text: '📊 Моя статистика' }, { text: '❓ Помощь' }],
       [{ text: '💬 Техподдержка' }, { text: '📋 Мои обращения' }],
+      [{ text: '🗑 Очистить чат' }],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
@@ -252,4 +253,44 @@ export async function getBotInfo(): Promise<TelegramResponse> {
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/**
+ * Удалить сообщение через Telegram Bot API
+ */
+export async function deleteTelegramMessage(
+  chatId: string | number,
+  messageId: number
+): Promise<TelegramResponse> {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!data.ok) {
+      console.error('Telegram deleteMessage error:', data.description)
+    }
+
+    return data
+  } catch (error) {
+    console.error('Failed to delete Telegram message:', error)
+    return { ok: false, description: String(error) }
+  }
+}
+
+/**
+ * Получить ID сообщения из ответа Telegram
+ */
+export function getMessageIdFromResponse(response: TelegramResponse): number | null {
+  if (response.ok && response.result?.message_id) {
+    return response.result.message_id
+  }
+  return null
 }

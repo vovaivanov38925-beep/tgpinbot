@@ -389,3 +389,18 @@ model SupportMessage {
   @@index([createdAt])
   @@map("support_messages")
 }
+
+// Сообщения бота для возможности очистки чата
+model BotMessage {
+  id          String   @id @default(cuid())
+  telegramId  String   // Telegram ID пользователя
+  chatId      String   // Chat ID (обычно совпадает с telegramId в личке)
+  messageId   Int      // ID сообщения в Telegram
+
+  createdAt   DateTime @default(now())
+
+  @@unique([chatId, messageId])
+  @@index([telegramId])
+  @@index([chatId])
+  @@map("bot_messages")
+}
