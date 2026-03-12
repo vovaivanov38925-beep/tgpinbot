@@ -716,6 +716,10 @@ export default function PinterestApp() {
               <Trophy className="w-6 h-6" />
               <span className="text-sm font-medium">Прогресс</span>
             </TabsTrigger>
+            <TabsTrigger value="premium" className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
+              <Crown className="w-6 h-6" />
+              <span className="text-sm font-medium">VIP</span>
+            </TabsTrigger>
           </TabsList>
 
           {/* Pins Tab */}
