@@ -131,6 +131,30 @@ async function scrapeBoardPage(boardUrl: string): Promise<ScrapeResult> {
 function extractPinsFromHtml(html: string): ScrapedPin[] {
   const pins: ScrapedPin[] = [];
   const seenUrls = new Set<string>();
+  const boardPinIds = new Set<string>();
+
+  // Method 0: Extract valid pin IDs from board-feed-item-list JSON-LD (most reliable)
+  // This gives us the actual pin IDs that belong to this board
+  const itemListMatch = html.match(/<script data-test-id="board-feed-item-list"[^>]*>([\s\S]*?)<\/script>/);
+  if (itemListMatch) {
+    try {
+      const jsonLdData = JSON.parse(itemListMatch[1]);
+      if (jsonLdData.itemListElement && Array.isArray(jsonLdData.itemListElement)) {
+        jsonLdData.itemListElement.forEach((item: any) => {
+          if (item.url) {
+            // Extract pin ID from URL like https://www.pinterest.com/pin/123456/
+            const pinIdMatch = item.url.match(/\/pin\/(\d+)/);
+            if (pinIdMatch) {
+              boardPinIds.add(pinIdMatch[1]);
+            }
+          }
+        });
+        console.log(`[Pinterest] Found ${boardPinIds.size} pin IDs in board-feed-item-list`);
+      }
+    } catch (e) {
+      console.error('Error parsing board-feed-item-list:', e);
+    }
+  }
 
   // Method 1: Look for pin data in embedded JSON (most reliable)
   try {
@@ -138,7 +162,7 @@ function extractPinsFromHtml(html: string): ScrapedPin[] {
     const pwsDataMatch = html.match(/<script id="__PWS_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
     if (pwsDataMatch) {
       const jsonData = JSON.parse(pwsDataMatch[1]);
-      const extractedFromJson = extractPinsFromPwsData(jsonData);
+      const extractedFromJson = extractPinsFromPwsData(jsonData, boardPinIds);
       console.log(`[Pinterest] Extracted ${extractedFromJson.length} pins from PWS_DATA`);
       extractedFromJson.forEach(pin => {
         if (!seenUrls.has(pin.imageUrl)) {
@@ -151,71 +175,89 @@ function extractPinsFromHtml(html: string): ScrapedPin[] {
     console.error('Error parsing PWS_DATA:', e);
   }
 
-  // Method 2: Look for pin images in HTML (fallback)
-  // Match i.pinimg.com URLs in various formats
-  const pinImgRegex = /https?:\/\/i\.pinimg\.com\/[^"'\s]+\.(jpg|jpeg|png|gif|webp)/gi;
-  const imgMatches = html.match(pinImgRegex) || [];
-
-  imgMatches.forEach(url => {
-    // Convert to original quality
-    const originalUrl = url.replace(/\/\d+x\d*\//, '/originals/');
-
-    if (!seenUrls.has(originalUrl)) {
-      seenUrls.add(originalUrl);
-      pins.push({
-        imageUrl: originalUrl,
-        title: null,
-        sourceUrl: null,
-        description: null,
-      });
-    }
-  });
+  // Method 2: Extract images from grid items with correct context
+  // Only take images that are inside board feed (grid-non-story-pin-image-unknown timing attribute)
+  const gridImgRegex = /elementtiming="grid-non-story-pin-image[^"]*"[^>]*src="https?:\/\/i\.pinimg\.com\/[^"]+"/gi;
+  const gridImgMatches = html.match(gridImgRegex) || [];
   
-  console.log(`[Pinterest] Found ${imgMatches.length} image URLs in HTML, total unique: ${pins.length}`);
+  gridImgMatches.forEach(match => {
+    const urlMatch = match.match(/src="(https?:\/\/i\.pinimg\.com\/[^"]+)"/);
+    if (urlMatch) {
+      // Convert to original quality
+      const originalUrl = urlMatch[1].replace(/\/\d+x\d*\//, '/originals/');
 
-  // Method 3: Extract pin URLs and titles from anchor tags
-  const pinLinkRegex = /<a[^>]*href="\/pin\/(\d+)"[^>]*>([\s\S]*?)<\/a>/gi;
-  let linkMatch;
-  while ((linkMatch = pinLinkRegex.exec(html)) !== null) {
-    const pinId = linkMatch[1];
-    const linkContent = linkMatch[2];
-
-    // Extract title from alt or title attribute
-    const titleMatch = linkContent.match(/alt="([^"]+)"/);
-    const title = titleMatch ? titleMatch[1] : null;
-
-    // Extract image URL from the link content
-    const imgMatch = linkContent.match(/https?:\/\/i\.pinimg\.com\/[^"'\s]+\.(jpg|jpeg|png|gif|webp)/i);
-    if (imgMatch) {
-      const originalUrl = imgMatch[0].replace(/\/\d+x\d*\//, '/originals/');
       if (!seenUrls.has(originalUrl)) {
         seenUrls.add(originalUrl);
+        
+        // Try to extract alt text for title
+        const altMatch = match.match(/alt="([^"]+)"/);
+        const title = altMatch ? altMatch[1] : null;
+        
         pins.push({
           imageUrl: originalUrl,
           title,
-          sourceUrl: `https://pinterest.com/pin/${pinId}`,
+          sourceUrl: null,
           description: null,
         });
       }
     }
-  }
+  });
+  
+  console.log(`[Pinterest] Found ${gridImgMatches.length} grid images, total unique: ${pins.length}`);
 
-  // Method 4: Extract from data-test-pin-id and other attributes
-  const dataPinRegex = /data-test-pin-id="([^"]+)"/g;
-  let dataPinMatch;
-  while ((dataPinMatch = dataPinRegex.exec(html)) !== null) {
-    const pinId = dataPinMatch[1];
-    // Construct image URL from pin ID if not already found
-    const possibleUrl = `https://i.pinimg.com/originals/${pinId.slice(0, 2)}/${pinId.slice(2, 4)}/${pinId.slice(4, 6)}/${pinId}.jpg`;
-    // This is a guess, Pinterest doesn't have a predictable URL pattern from ID alone
-  }
+  // Method 3: Look for images in srcset (higher quality versions)
+  const srcsetRegex = /srcset="[^"]*i\.pinimg\.com\/originals\/[^"]+"/gi;
+  const srcsetMatches = html.match(srcsetRegex) || [];
+  
+  srcsetMatches.forEach(match => {
+    // Extract originals URL
+    const origMatch = match.match(/i\.pinimg\.com\/originals\/[^"'\s]+/);
+    if (origMatch) {
+      const originalUrl = `https://${origMatch[0]}`;
+      if (!seenUrls.has(originalUrl)) {
+        seenUrls.add(originalUrl);
+        pins.push({
+          imageUrl: originalUrl,
+          title: null,
+          sourceUrl: null,
+          description: null,
+        });
+      }
+    }
+  });
 
+  // Method 4: Fallback - extract pin images from HTML (but only if we haven't found enough)
+  if (pins.length < 5) {
+    const pinImgRegex = /https?:\/\/i\.pinimg\.com\/[^"'\s]+\.(jpg|jpeg|png|gif|webp)/gi;
+    const imgMatches = html.match(pinImgRegex) || [];
+
+    imgMatches.forEach(url => {
+      // Skip profile images and small thumbnails
+      if (url.includes('/75x75') || url.includes('/140x140') || url.includes('_RS/')) {
+        return;
+      }
+      
+      // Convert to original quality
+      const originalUrl = url.replace(/\/\d+x\d*\//, '/originals/');
+
+      if (!seenUrls.has(originalUrl)) {
+        seenUrls.add(originalUrl);
+        pins.push({
+          imageUrl: originalUrl,
+          title: null,
+          sourceUrl: null,
+          description: null,
+        });
+      }
+    });
+  }
+  
   console.log(`[Pinterest] Total pins extracted: ${pins.length}`);
   return pins;
 }
 
 // Extract pins from Pinterest's embedded JSON data
-function extractPinsFromPwsData(data: any): ScrapedPin[] {
+function extractPinsFromPwsData(data: any, boardPinIds: Set<string>): ScrapedPin[] {
   const pins: ScrapedPin[] = [];
   const seenIds = new Set<string>();
 
@@ -224,43 +266,52 @@ function extractPinsFromPwsData(data: any): ScrapedPin[] {
 
     // Look for pin objects with images
     if (obj.id && (obj.images || obj.image_url || obj.image)) {
-      if (seenIds.has(obj.id)) return;
-      seenIds.add(obj.id);
+      const pinId = String(obj.id);
+      
+      // If we have board pin IDs, only accept pins from that list
+      // Otherwise accept all pins with images
+      if (boardPinIds.size > 0 && !boardPinIds.has(pinId)) {
+        // This pin is not in our board, skip it (it's likely a recommendation)
+        // But still traverse children
+      } else {
+        if (seenIds.has(pinId)) return;
+        seenIds.add(pinId);
 
-      let imageUrl: string | null = null;
+        let imageUrl: string | null = null;
 
-      // Try different image formats
-      if (obj.images?.orig?.url) {
-        imageUrl = obj.images.orig.url;
-      } else if (obj.images?.['564x']?.url) {
-        imageUrl = obj.images['564x'].url.replace('/564x/', '/originals/');
-      } else if (obj.images?.['474x']?.url) {
-        imageUrl = obj.images['474x'].url.replace('/474x/', '/originals/');
-      } else if (obj.image_url) {
-        imageUrl = obj.image_url;
-      } else if (obj.image?.url) {
-        imageUrl = obj.image.url;
-      } else if (typeof obj.image === 'string') {
-        imageUrl = obj.image;
-      }
-
-      if (imageUrl && imageUrl.includes('pinimg.com')) {
-        // Ensure original quality
-        if (!imageUrl.includes('/originals/')) {
-          imageUrl = imageUrl.replace(/\/\d+x\d*\//, '/originals/');
+        // Try different image formats
+        if (obj.images?.orig?.url) {
+          imageUrl = obj.images.orig.url;
+        } else if (obj.images?.['564x']?.url) {
+          imageUrl = obj.images['564x'].url.replace('/564x/', '/originals/');
+        } else if (obj.images?.['474x']?.url) {
+          imageUrl = obj.images['474x'].url.replace('/474x/', '/originals/');
+        } else if (obj.image_url) {
+          imageUrl = obj.image_url;
+        } else if (obj.image?.url) {
+          imageUrl = obj.image.url;
+        } else if (typeof obj.image === 'string') {
+          imageUrl = obj.image;
         }
-        
-        pins.push({
-          imageUrl,
-          title: obj.title || obj.grid_title || obj.name || null,
-          sourceUrl: obj.link || (obj.id ? `https://pinterest.com/pin/${obj.id}` : null),
-          description: obj.description || obj.grid_description || obj.text || null,
-        });
+
+        if (imageUrl && imageUrl.includes('pinimg.com')) {
+          // Ensure original quality
+          if (!imageUrl.includes('/originals/')) {
+            imageUrl = imageUrl.replace(/\/\d+x\d*\//, '/originals/');
+          }
+          
+          pins.push({
+            imageUrl,
+            title: obj.title || obj.grid_title || obj.name || null,
+            sourceUrl: obj.link || (obj.id ? `https://pinterest.com/pin/${obj.id}` : null),
+            description: obj.description || obj.grid_description || obj.text || null,
+          });
+        }
       }
     }
 
-    // Also look for thumbnail/url patterns
-    if (obj.url && typeof obj.url === 'string' && obj.url.includes('pinimg.com')) {
+    // Also look for thumbnail/url patterns (only if no board pin IDs filter)
+    if (boardPinIds.size === 0 && obj.url && typeof obj.url === 'string' && obj.url.includes('pinimg.com')) {
       const imageUrl = obj.url.replace(/\/\d+x\d*\//, '/originals/');
       if (!pins.find(p => p.imageUrl === imageUrl)) {
         pins.push({
