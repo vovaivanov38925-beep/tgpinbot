@@ -67,9 +67,9 @@ export function getMainKeyboard() {
   return {
     keyboard: [
       [{ text: '📱 Открыть приложение' }],
+      [{ text: '📥 Синхронизировать доску' }, { text: '📥 Мои доски' }],
       [{ text: '📊 Моя статистика' }, { text: '❓ Помощь' }],
-      [{ text: '💬 Техподдержка' }, { text: '📋 Мои обращения' }],
-      [{ text: '🗑 Очистить чат' }],
+      [{ text: '💬 Техподдержка' }, { text: '🗑 Очистить чат' }],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,

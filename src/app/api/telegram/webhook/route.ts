@@ -14,7 +14,7 @@ import {
 import { logger } from '@/lib/logger'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!
-const MINI_APP_URL = process.env.MINI_APP_URL!
+const MINI_APP_URL = process.env.MINI_APP_URL || ''
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID! // Telegram chat ID админа для поддержки
 
 /**
@@ -407,21 +407,29 @@ async function handleStartCommand(chatId: number, from?: { id: number; is_bot: b
 🔔 <b>Уведомления включены!</b>
 Теперь я буду присылать напоминания о твоих задачах.
 
-👇 Нажми кнопку ниже, чтобы открыть приложение!`
+👇 Используй кнопки внизу для быстрого доступа!`
 
-    // Отправляем приветствие с inline кнопкой для Mini App
-    await sendTelegramMessage({
-      chat_id: chatId,
-      text: welcomeText,
-      reply_markup: getMiniAppButton(MINI_APP_URL),
-    })
-
-    // Затем отправляем главное меню (Reply Keyboard)
-    await sendTelegramMessage({
-      chat_id: chatId,
-      text: '📱 Используй кнопки внизу для быстрого доступа:',
-      reply_markup: getMainKeyboard(),
-    })
+    // Если есть URL Mini App - отправляем с inline кнопкой
+    if (MINI_APP_URL) {
+      await sendTelegramMessage({
+        chat_id: chatId,
+        text: welcomeText,
+        reply_markup: getMiniAppButton(MINI_APP_URL),
+      })
+      // Затем отправляем главное меню
+      await sendTelegramMessage({
+        chat_id: chatId,
+        text: '📱 Меню:',
+        reply_markup: getMainKeyboard(),
+      })
+    } else {
+      // Иначе просто отправляем сообщение с меню
+      await sendTelegramMessage({
+        chat_id: chatId,
+        text: welcomeText,
+        reply_markup: getMainKeyboard(),
+      })
+    }
   } catch (error) {
     console.error('Error in start command:', error)
     await logger.error('telegram', 'Error in start command', { error: String(error), telegramId })
@@ -437,6 +445,15 @@ async function handleStartCommand(chatId: number, from?: { id: number; is_bot: b
  * Обработка кнопки "Открыть приложение"
  */
 async function handleOpenAppCommand(chatId: number) {
+  if (!MINI_APP_URL) {
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '🚫 Mini App временно недоступно. Используйте кнопку "📱 Открыть приложение" в меню.',
+      reply_markup: getMainKeyboard(),
+    })
+    return
+  }
+
   const text = `🚀 <b>Открыть приложение</b>
 
 Нажми кнопку ниже, чтобы открыть Mini App:`

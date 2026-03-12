@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { processNotifications, POINTS, getPremiumReminderTimes } from '@/lib/notifications'
 import { logger } from '@/lib/logger'
+import { checkTasksLimit, checkActiveTasksLimit } from '@/lib/limits'
 
 // GET - Get all tasks for a user
 export async function GET(request: NextRequest) {
@@ -41,6 +42,34 @@ export async function POST(request: NextRequest) {
 
     if (!userId || !title) {
       return NextResponse.json({ error: 'User ID and title are required' }, { status: 400 })
+    }
+
+    // Check tasks limit
+    const tasksLimit = await checkTasksLimit(userId)
+    if (!tasksLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: tasksLimit.message || 'Достигнут лимит задач',
+          limitExceeded: true,
+          current: tasksLimit.current,
+          limit: tasksLimit.limit
+        },
+        { status: 403 }
+      )
+    }
+
+    // Check active tasks limit
+    const activeTasksLimit = await checkActiveTasksLimit(userId)
+    if (!activeTasksLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: activeTasksLimit.message || 'Слишком много активных задач',
+          limitExceeded: true,
+          current: activeTasksLimit.current,
+          limit: activeTasksLimit.limit
+        },
+        { status: 403 }
+      )
     }
 
     // Проверка на дублирование - ищем похожую задачу за последние 5 секунд

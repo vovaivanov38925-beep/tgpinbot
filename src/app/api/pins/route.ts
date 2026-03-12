@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { addPointsToUser, checkAndAwardAchievements, POINTS } from '@/lib/notifications'
 import { logger } from '@/lib/logger'
+import { checkPinsLimit, getUserLimits } from '@/lib/limits'
 
 // GET - Get all pins for a user
 export async function GET(request: NextRequest) {
@@ -23,7 +24,18 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json(pins)
+    // Also return limits info
+    const limitsCheck = await checkPinsLimit(userId)
+
+    return NextResponse.json({
+      pins,
+      limits: {
+        current: limitsCheck.current,
+        limit: limitsCheck.limit,
+        remaining: limitsCheck.remaining,
+        allowed: limitsCheck.allowed,
+      }
+    })
   } catch (error) {
     console.error('Error fetching pins:', error)
     await logger.error('api', 'Error fetching pins', { error: String(error) })
@@ -41,6 +53,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User ID and image URL are required' }, { status: 400 })
     }
 
+    // Check limits
+    const limitsCheck = await checkPinsLimit(userId)
+    if (!limitsCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: limitsCheck.message || 'Достигнут лимит пинов',
+          limitExceeded: true,
+          current: limitsCheck.current,
+          limit: limitsCheck.limit
+        },
+        { status: 403 }
+      )
+    }
+
     // Validate URL - block Pinterest page URLs
     const isPinterestPage =
       imageUrl.includes('pinterest.com/pin/') && !imageUrl.includes('pinimg.com')
@@ -51,6 +77,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get user limits for points multiplier
+    const userLimits = await getUserLimits(userId)
+    const pointsToAdd = POINTS.PIN_CREATED * userLimits.pointsMultiplier
+
     // Create pin
     const pin = await db.pin.create({
       data: {
@@ -60,33 +90,40 @@ export async function POST(request: NextRequest) {
         description: description || null,
         category: category || null,
         sourceUrl: sourceUrl || null,
+        points: pointsToAdd,
       },
     })
 
     // Add points
-    const { newLevel, levelUp } = await addPointsToUser(userId, POINTS.PIN_CREATED, 'pin_created')
+    const { newLevel, levelUp } = await addPointsToUser(userId, pointsToAdd, 'pin_created')
 
     // Check achievements
     const { newAchievements, totalPoints: achievementPoints } = await checkAndAwardAchievements(userId)
     if (achievementPoints > 0) {
-      await addPointsToUser(userId, achievementPoints, 'achievement')
+      await addPointsToUser(userId, achievementPoints * userLimits.pointsMultiplier, 'achievement')
     }
 
     await logger.info('api', 'Pin created', {
       pinId: pin.id,
       category,
       userId,
-      pointsEarned: POINTS.PIN_CREATED + achievementPoints,
+      pointsEarned: pointsToAdd + achievementPoints,
       levelUp,
       achievements: newAchievements.length,
+      isPremium: userLimits.isPremium,
     })
 
     return NextResponse.json({
       ...pin,
-      points: POINTS.PIN_CREATED + achievementPoints,
+      points: pointsToAdd + achievementPoints,
       levelUp,
       newLevel: levelUp ? newLevel : undefined,
       newAchievements,
+      limits: {
+        current: limitsCheck.current + 1,
+        limit: limitsCheck.limit,
+        remaining: Math.max(0, limitsCheck.remaining - 1),
+      }
     })
   } catch (error) {
     console.error('Error creating pin:', error)
