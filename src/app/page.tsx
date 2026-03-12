@@ -708,10 +708,6 @@ export default function PinterestApp() {
               <PinIcon className="w-6 h-6" />
               <span className="text-sm font-medium">Пины</span>
             </TabsTrigger>
-            <TabsTrigger value="boards" className="flex-1 data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
-              <Layers className="w-6 h-6" />
-              <span className="text-sm font-medium">Доски</span>
-            </TabsTrigger>
             <TabsTrigger value="tasks" className="flex-1 data-[state=active]:bg-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
               <ListTodo className="w-6 h-6" />
               <span className="text-sm font-medium">Задачи</span>
@@ -724,63 +720,148 @@ export default function PinterestApp() {
 
           {/* Pins Tab */}
           <TabsContent value="pins" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-            <div className="flex items-center justify-between mb-4 shrink-0">
-              <h2 className="text-lg font-semibold">Мои пины</h2>
-              <Button
-                onClick={() => setShowAddPin(true)}
-                size="sm"
-                className="gradient-pink text-white border-0 shadow-soft"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Добавить
-              </Button>
-            </div>
-
             <ScrollArea className="flex-1 h-0">
-              <div className="grid grid-cols-2 gap-3 pr-2 pb-4">
-                {pins.length === 0 ? (
-                  <div className="col-span-2 text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full gradient-lavender flex items-center justify-center">
-                      <PinIcon className="w-8 h-8 text-white" />
-                    </div>
-                    <p className="text-muted-foreground mb-4">Пока нет сохранённых идей</p>
-                    <p className="text-sm text-muted-foreground/70">
-                      Нажмите "Добавить" чтобы сохранить первую идею из Pinterest
-                    </p>
+              <div className="pr-2 pb-4">
+                {/* Boards Section */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-semibold flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-blue-500" />
+                      Мои доски
+                    </h3>
+                    <Button
+                      onClick={() => setShowAddBoard(true)}
+                      size="sm"
+                      variant="outline"
+                      className="border-blue-500/30 text-blue-500 hover:bg-blue-500/10"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Добавить доску
+                    </Button>
                   </div>
-                ) : (
-                  pins.map((pin, index) => (
-                  <Card
-                    key={pin.id || `pin-${index}`}
-                    className="overflow-hidden cursor-pointer hover:shadow-pink transition-all duration-300 border-pink/10"
-                    onClick={() => setSelectedPin(pin)}
-                  >
-                    <div className="aspect-square relative">
-                      <img
-                        src={pin.imageUrl}
-                        alt={pin.title || 'Pin'}
-                        className="w-full h-full object-cover"
-                      />
-                      {pin.isCompleted && (
-                        <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                          <CheckCircle2 className="w-4 h-4 text-white" />
-                        </div>
-                      )}
-                      {pin.category && (
-                        <div className="absolute bottom-2 left-2">
-                          <Badge variant="secondary" className="bg-white/90 text-xs">
-                            {categoryIcons[pin.category]}
-                            <span className="ml-1">{categories.find(c => c.id === pin.category)?.name || pin.category}</span>
-                          </Badge>
-                        </div>
-                      )}
+
+                  {boards.length === 0 ? (
+                    <Card className="border-dashed border-blue-500/30 bg-blue-500/5">
+                      <CardContent className="p-4 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">Нет подключённых досок</p>
+                        <p className="text-xs text-muted-foreground/70">
+                          Добавьте доску Pinterest для автоматической синхронизации пинов
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-2">
+                      {boards.map((board) => (
+                        <Card key={board.id} className="border-blue-500/20 hover:shadow-lg transition-all duration-300">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
+                                <Layers className="w-5 h-5 text-blue-500" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{board.boardName || 'Доска без названия'}</p>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <PinIcon className="w-3 h-3" />
+                                    {board.totalPins} пинов
+                                  </span>
+                                  {board.lastSyncAt && (
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3" />
+                                      {new Date(board.lastSyncAt).toLocaleDateString('ru-RU')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
+                                  onClick={() => resyncBoard(board)}
+                                  disabled={isSyncingBoard === board.id}
+                                >
+                                  {isSyncingBoard === board.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-4 h-4" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                  onClick={() => deleteBoard(board.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
-                    <CardContent className="p-3">
-                      <p className="font-medium text-sm truncate">{pin.title}</p>
-                      <p className="text-xs text-muted-foreground truncate">{pin.description}</p>
-                    </CardContent>
-                  </Card>
-                )))}
+                  )}
+                </div>
+
+                {/* Pins Section */}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base font-semibold">Мои пины</h3>
+                  <Button
+                    onClick={() => setShowAddPin(true)}
+                    size="sm"
+                    className="gradient-pink text-white border-0 shadow-soft"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Добавить пин
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {pins.length === 0 ? (
+                    <div className="col-span-2 text-center py-8">
+                      <div className="w-14 h-14 mx-auto mb-3 rounded-full gradient-lavender flex items-center justify-center">
+                        <PinIcon className="w-7 h-7 text-white" />
+                      </div>
+                      <p className="text-muted-foreground mb-2 text-sm">Пока нет сохранённых идей</p>
+                      <p className="text-xs text-muted-foreground/70">
+                        Нажмите "Добавить пин" чтобы сохранить первую идею из Pinterest
+                      </p>
+                    </div>
+                  ) : (
+                    pins.map((pin, index) => (
+                    <Card
+                      key={pin.id || `pin-${index}`}
+                      className="overflow-hidden cursor-pointer hover:shadow-pink transition-all duration-300 border-pink/10"
+                      onClick={() => setSelectedPin(pin)}
+                    >
+                      <div className="aspect-square relative">
+                        <img
+                          src={pin.imageUrl}
+                          alt={pin.title || 'Pin'}
+                          className="w-full h-full object-cover"
+                        />
+                        {pin.isCompleted && (
+                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                            <CheckCircle2 className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                        {pin.category && (
+                          <div className="absolute bottom-2 left-2">
+                            <Badge variant="secondary" className="bg-white/90 text-xs">
+                              {categoryIcons[pin.category]}
+                              <span className="ml-1">{categories.find(c => c.id === pin.category)?.name || pin.category}</span>
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                      <CardContent className="p-3">
+                        <p className="font-medium text-sm truncate">{pin.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{pin.description}</p>
+                      </CardContent>
+                    </Card>
+                  )))}
+                </div>
               </div>
             </ScrollArea>
           </TabsContent>
@@ -903,90 +984,6 @@ export default function PinterestApp() {
                       </div>
                     )}
                   </>
-                )}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          {/* Boards Tab */}
-          <TabsContent value="boards" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-            <div className="flex items-center justify-between mb-4 shrink-0">
-              <h2 className="text-lg font-semibold">Мои доски</h2>
-              <Button
-                onClick={() => setShowAddBoard(true)}
-                size="sm"
-                className="bg-blue-500 hover:bg-blue-600 text-white border-0 shadow-soft"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Добавить
-              </Button>
-            </div>
-
-            <ScrollArea className="flex-1 h-0">
-              <div className="space-y-3 pr-2 pb-4">
-                {boards.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/20 flex items-center justify-center">
-                      <Layers className="w-8 h-8 text-blue-500" />
-                    </div>
-                    <p className="text-muted-foreground mb-4">Нет подключённых досок</p>
-                    <p className="text-sm text-muted-foreground/70">
-                      Добавьте ссылку на доску Pinterest для синхронизации пинов
-                    </p>
-                  </div>
-                ) : (
-                  boards.map((board) => (
-                    <Card key={board.id} className="border-blue-500/20 hover:shadow-lg transition-all duration-300">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
-                            <Layers className="w-6 h-6 text-blue-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{board.boardName || 'Доска без названия'}</p>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {board.boardUrl}
-                            </p>
-                            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <PinIcon className="w-3 h-3" />
-                                {board.totalPins} пинов
-                              </span>
-                              {board.lastSyncAt && (
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {new Date(board.lastSyncAt).toLocaleDateString('ru-RU')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
-                              onClick={() => resyncBoard(board)}
-                              disabled={isSyncingBoard === board.id}
-                            >
-                              {isSyncingBoard === board.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <RefreshCw className="w-4 h-4" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-destructive"
-                              onClick={() => deleteBoard(board.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
                 )}
               </div>
             </ScrollArea>
