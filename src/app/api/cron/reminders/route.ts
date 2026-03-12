@@ -92,21 +92,23 @@ async function processMainReminders(now: Date): Promise<ReminderResult[]> {
         continue
       }
 
-      const timeStr = task.reminderTime
-        ? `\n⏰ ${task.reminderTime.toLocaleDateString('ru-RU', {
+      const timeLabel = task.reminderTime
+        ? `🕐 ${task.reminderTime.toLocaleString('ru-RU', {
             day: 'numeric',
             month: 'long',
             hour: '2-digit',
             minute: '2-digit',
+            timeZone: 'Europe/Moscow'
           })}`
         : ''
 
       const text = `⏰ <b>Напоминание о задаче</b>
 
-📋 <b>${escapeHtml(task.title)}</b>
-${task.description ? `\n${escapeHtml(task.description.substring(0, 200))}` : ''}${timeStr}
+<b>${escapeHtml(task.title)}</b>${task.description ? `\n${escapeHtml(task.description.substring(0, 100))}${task.description.length > 100 ? '...' : ''}` : ''}
 
-👉 Открой приложение, чтобы отметить выполнение!`
+${timeLabel}
+
+👉 <a href="https://t.me/PinToActionBot?startapp=1">Открыть приложение</a>`
 
       const result = await sendTelegramMessage({ chat_id: chatId, text })
 
@@ -275,30 +277,38 @@ function formatSmartReminder(
   dueDate: Date,
   timeLeft: string
 ): string {
-  const emojis: Record<string, string> = {
-    '3_days': '📅',
-    '1_day': '📆',
-    '4_hours': '⏰',
-    '1_hour': '⏱️',
-    '15_min': '🚨',
-  }
-
   const urgencyText: Record<string, string> = {
-    '3_days': 'Скоро важное событие!',
-    '1_day': 'Событие уже завтра!',
-    '4_hours': 'Осталось немного времени!',
-    '1_hour': 'Остался всего час!',
-    '15_min': 'Срочное напоминание!',
+    '3_days': 'Напоминание',
+    '1_day': 'Напоминание',
+    '4_hours': 'Скоро срок',
+    '1_hour': 'Скоро срок',
+    '15_min': 'Срочно',
   }
 
-  return `${emojis[type] || '⏰'} <b>${urgencyText[type]}</b>
+  const deadlineText: Record<string, string> = {
+    '3_days': '🕐 Осталось 3 дня',
+    '1_day': '🕐 Остался 1 день',
+    '4_hours': '🕐 Осталось 4 часа',
+    '1_hour': '🕐 Остался 1 час',
+    '15_min': '🕐 Осталось 15 минут',
+  }
 
-📋 <b>${escapeHtml(taskTitle)}</b>
+  const dateStr = dueDate.toLocaleString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Moscow'
+  })
 
-⏱️ Срок: ${timeLeft}
-📅 ${dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+  return `⏰ <b>${urgencyText[type]}</b>
 
-👉 Не забудь подготовиться!`
+<b>${escapeHtml(taskTitle)}</b>
+
+${deadlineText[type]}
+📅 Срок: ${dateStr}
+
+👉 <a href="https://t.me/PinToActionBot?startapp=1">Открыть приложение</a>`
 }
 
 function escapeHtml(text: string): string {

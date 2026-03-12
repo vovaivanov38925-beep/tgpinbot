@@ -43,6 +43,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User ID and title are required' }, { status: 400 })
     }
 
+    // Проверка на дублирование - ищем похожую задачу за последние 5 секунд
+    const fiveSecondsAgo = new Date(Date.now() - 5000)
+    const existingTask = await db.task.findFirst({
+      where: {
+        userId,
+        title,
+        createdAt: { gte: fiveSecondsAgo }
+      }
+    })
+
+    if (existingTask) {
+      // Возвращаем существующую задачу вместо создания дубликата
+      await logger.info('api', 'Duplicate task prevented', { taskId: existingTask.id, userId, title })
+      return NextResponse.json(existingTask)
+    }
+
     const taskPoints =
       priority === 'high' ? POINTS.TASK_COMPLETED_HIGH_PRIORITY : POINTS.TASK_COMPLETED_BASE
 

@@ -12,7 +12,9 @@ import {
   Menu,
   X,
   Shield,
-  Pin
+  Pin,
+  Megaphone,
+  MessageCircle
 } from 'lucide-react'
 
 interface AdminData {
@@ -35,7 +37,6 @@ export default function AdminLayout({
   useEffect(() => {
     // Skip auth check on login page
     if (pathname === '/admin/login') {
-      setLoading(false)
       return
     }
 
@@ -59,8 +60,7 @@ export default function AdminLayout({
       })
 
     return () => { mounted = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname])
+  }, [pathname, router])
 
   const handleLogout = async () => {
     await fetch('/api/admin/auth/logout', { method: 'POST' })
@@ -71,6 +71,8 @@ export default function AdminLayout({
     { href: '/admin', icon: LayoutDashboard, label: 'Дашборд' },
     { href: '/admin/users', icon: Users, label: 'Пользователи' },
     { href: '/admin/pins', icon: Pin, label: 'Пины' },
+    { href: '/admin/support', icon: MessageCircle, label: 'Поддержка' },
+    { href: '/admin/marketing', icon: Megaphone, label: 'Маркетинг' },
     { href: '/admin/logs', icon: FileText, label: 'Логи' },
     { href: '/admin/payments', icon: CreditCard, label: 'Оплата' },
     { href: '/admin/settings', icon: Settings, label: 'Настройки' },

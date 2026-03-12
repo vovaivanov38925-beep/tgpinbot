@@ -3,18 +3,29 @@
  * Отправка уведомлений пользователям через Telegram Bot API
  */
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8720645134:AAGOCNBOO4MqgfB10C5FfKnx1vg9oO-SuZc'
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!
 
 interface TelegramMessage {
   chat_id: string | number
   text: string
   parse_mode?: 'HTML' | 'Markdown' | 'MarkdownV2'
   disable_web_page_preview?: boolean
+  reply_markup?: {
+    keyboard?: Array<Array<{ text: string }>>
+    resize_keyboard?: boolean
+    one_time_keyboard?: boolean
+    inline_keyboard?: Array<Array<{
+      text: string
+      url?: string
+      callback_data?: string
+      web_app?: { url: string }
+    }>>
+  }
 }
 
 interface TelegramResponse {
   ok: boolean
-  result?: unknown
+  result?: { message_id?: number } & Record<string, unknown>
   description?: string
   error_code?: number
 }
@@ -32,6 +43,7 @@ export async function sendTelegramMessage(message: TelegramMessage): Promise<Tel
         text: message.text,
         parse_mode: message.parse_mode || 'HTML',
         disable_web_page_preview: message.disable_web_page_preview ?? true,
+        reply_markup: message.reply_markup,
       }),
     })
 
@@ -49,6 +61,33 @@ export async function sendTelegramMessage(message: TelegramMessage): Promise<Tel
 }
 
 /**
+ * Главное меню бота (Reply Keyboard)
+ */
+export function getMainKeyboard() {
+  return {
+    keyboard: [
+      [{ text: '📱 Открыть приложение' }],
+      [{ text: '📊 Моя статистика' }, { text: '❓ Помощь' }],
+      [{ text: '💬 Техподдержка' }, { text: '📋 Мои обращения' }],
+      [{ text: '🗑 Очистить чат' }],
+    ],
+    resize_keyboard: true,
+    one_time_keyboard: false,
+  }
+}
+
+/**
+ * Inline кнопка для открытия Mini App
+ */
+export function getMiniAppButton(appUrl: string) {
+  return {
+    inline_keyboard: [[
+      { text: '🚀 Открыть приложение', web_app: { url: appUrl } }
+    ]]
+  }
+}
+
+/**
  * Отправить напоминание о задаче
  */
 export async function sendTaskReminder(
@@ -57,21 +96,23 @@ export async function sendTaskReminder(
   taskDescription?: string | null,
   reminderTime?: Date | null
 ): Promise<TelegramResponse> {
-  const timeStr = reminderTime
-    ? `\n⏰ ${reminderTime.toLocaleDateString('ru-RU', {
+  const timeLabel = reminderTime
+    ? `🕐 ${reminderTime.toLocaleString('ru-RU', {
         day: 'numeric',
         month: 'long',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Europe/Moscow'
       })}`
     : ''
 
   const text = `⏰ <b>Напоминание о задаче</b>
 
-📋 <b>${escapeHtml(taskTitle)}</b>
-${taskDescription ? `\n${escapeHtml(taskDescription.substring(0, 200))}${taskDescription.length > 200 ? '...' : ''}` : ''}${timeStr}
+<b>${escapeHtml(taskTitle)}</b>${taskDescription ? `\n${escapeHtml(taskDescription.substring(0, 100))}${taskDescription.length > 100 ? '...' : ''}` : ''}
 
-👉 Открой приложение, чтобы отметить выполнение!`
+${timeLabel}
+
+👉 <a href="https://t.me/PinToActionBot?startapp=1">Открыть приложение</a>`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -84,12 +125,13 @@ export async function sendTaskCompletedNotification(
   taskTitle: string,
   points: number
 ): Promise<TelegramResponse> {
-  const text = `✅ <b>Задача выполнена!</b>
+  const text = `<b>✅ Задача выполнена</b>
 
-📋 ${escapeHtml(taskTitle)}
+${escapeHtml(taskTitle)}
 
-⭐ +${points} очков!
-Продолжай в том же духе! 🚀`
+⭐ +${points} очков
+
+—\n💪 Продолжай в том же духе!`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -103,12 +145,14 @@ export async function sendAchievementNotification(
   achievementDescription: string,
   points: number
 ): Promise<TelegramResponse> {
-  const text = `🏆 <b>Новое достижение!</b>
+  const text = `<b>🏆 Новое достижение</b>
 
-🎖️ <b>${escapeHtml(achievementName)}</b>
-${escapeHtml(achievementDescription)}
+<b>${escapeHtml(achievementName)}</b>
+<i>${escapeHtml(achievementDescription)}</i>
 
-⭐ +${points} очков!`
+⭐ +${points} очков
+
+—\n🎖 Отличная работа!`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -120,11 +164,11 @@ export async function sendLevelUpNotification(
   chatId: string | number,
   newLevel: number
 ): Promise<TelegramResponse> {
-  const text = `🎉 <b>Поздравляем!</b>
+  const text = `<b>🎉 Новый уровень</b>
 
-🆙 Ты достиг <b>${newLevel} уровня</b>!
+🆙 Ты достиг <b>${newLevel} уровня</b>
 
-Продолжай сохранять идеи и выполнять задачи! 💪`
+—\n💪 Продолжай сохранять идеи и выполнять задачи!`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -138,38 +182,38 @@ export async function sendSmartReminder(
   reminderType: '3_days' | '1_day' | '4_hours' | '1_hour' | '15_min',
   dueDate: Date
 ): Promise<TelegramResponse> {
-  const emojis: Record<string, string> = {
-    '3_days': '📅',
-    '1_day': '📆',
-    '4_hours': '⏰',
-    '1_hour': '⏱️',
-    '15_min': '🚨',
-  }
-
   const urgencyText: Record<string, string> = {
-    '3_days': 'Скоро важное событие!',
-    '1_day': 'Событие уже завтра!',
-    '4_hours': 'Осталось немного времени!',
-    '1_hour': 'Остался всего час!',
-    '15_min': 'Срочное напоминание!',
+    '3_days': 'Напоминание',
+    '1_day': 'Напоминание',
+    '4_hours': 'Скоро срок',
+    '1_hour': 'Скоро срок',
+    '15_min': 'Срочно',
   }
 
-  const timeLeft: Record<string, string> = {
-    '3_days': 'через 3 дня',
-    '1_day': 'завтра',
-    '4_hours': 'через 4 часа',
-    '1_hour': 'через час',
-    '15_min': 'через 15 минут',
+  const deadlineText: Record<string, string> = {
+    '3_days': '🕐 Осталось 3 дня',
+    '1_day': '🕐 Остался 1 день',
+    '4_hours': '🕐 Осталось 4 часа',
+    '1_hour': '🕐 Остался 1 час',
+    '15_min': '🕐 Осталось 15 минут',
   }
 
-  const text = `${emojis[reminderType]} <b>${urgencyText[reminderType]}</b>
+  const dateStr = dueDate.toLocaleString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Moscow'
+  })
 
-📋 <b>${escapeHtml(taskTitle)}</b>
+  const text = `⏰ <b>${urgencyText[reminderType]}</b>
 
-⏱️ Срок: ${timeLeft[reminderType]}
-📅 ${dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+<b>${escapeHtml(taskTitle)}</b>
 
-👉 Не забудь подготовиться!`
+${deadlineText[reminderType]}
+📅 Срок: ${dateStr}
+
+👉 <a href="https://t.me/PinToActionBot?startapp=1">Открыть приложение</a>`
 
   return sendTelegramMessage({ chat_id: chatId, text })
 }
@@ -228,7 +272,13 @@ export async function deleteTelegramMessage(
       }),
     })
 
-    return await response.json()
+    const data = await response.json()
+
+    if (!data.ok) {
+      console.error('Telegram deleteMessage error:', data.description)
+    }
+
+    return data
   } catch (error) {
     console.error('Failed to delete Telegram message:', error)
     return { ok: false, description: String(error) }
@@ -236,7 +286,7 @@ export async function deleteTelegramMessage(
 }
 
 /**
- * Получить ID сообщения из ответа Telegram API
+ * Получить ID сообщения из ответа Telegram
  */
 export function getMessageIdFromResponse(response: TelegramResponse): number | null {
   if (response.ok && response.result && typeof response.result === 'object') {

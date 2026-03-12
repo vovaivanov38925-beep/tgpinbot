@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   Users, Pin, CheckCircle2, Crown, TrendingUp,
-  DollarSign, Activity, Clock
+  DollarSign, Activity, Clock, Trash2, AlertTriangle, Database
 } from 'lucide-react'
 
 interface Stats {
@@ -33,13 +33,25 @@ interface LogEntry {
   admin: { username: string }
 }
 
+interface DbStatus {
+  totalUsers: number
+  totalPins: number
+  totalTasks: number
+  orphanPins: number
+  orphanTasks: number
+  status: 'OK' | 'ORPHAN_RECORDS_FOUND'
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [recentUsers, setRecentUsers] = useState<RecentUser[]>([])
   const [recentLogs, setRecentLogs] = useState<LogEntry[]>([])
+  const [dbStatus, setDbStatus] = useState<DbStatus | null>(null)
   const [loading, setLoading] = useState(true)
+  const [cleanupLoading, setCleanupLoading] = useState(false)
 
-  useEffect(() => {
+  const fetchStats = () => {
+    setLoading(true)
     fetch('/api/admin/stats')
       .then(res => res.json())
       .then(data => {
@@ -49,7 +61,36 @@ export default function AdminDashboard() {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
+  }
+
+  const checkDbIntegrity = () => {
+    fetch('/api/admin/check-db')
+      .then(res => res.json())
+      .then(data => setDbStatus(data))
+      .catch(console.error)
+  }
+
+  useEffect(() => {
+    fetchStats()
+    checkDbIntegrity()
   }, [])
+
+  const handleCleanup = async () => {
+    if (!confirm('Удалить осиротевшие записи (пины и задачи без пользователей)?')) return
+    setCleanupLoading(true)
+    try {
+      const res = await fetch('/api/admin/cleanup', { method: 'POST' })
+      const data = await res.json()
+      alert(data.message)
+      fetchStats()
+      checkDbIntegrity()
+    } catch (err) {
+      console.error(err)
+      alert('Ошибка при очистке')
+    } finally {
+      setCleanupLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -101,6 +142,59 @@ export default function AdminDashboard() {
             <p className="text-sm text-slate-400 mt-1">{stat.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Maintenance Tools */}
+      <div className={`bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border ${dbStatus?.status === 'OK' ? 'border-green-500/30' : 'border-amber-500/30'}`}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${dbStatus?.status === 'OK' ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 'bg-gradient-to-br from-amber-500 to-orange-600'}`}>
+              {dbStatus?.status === 'OK' ? (
+                <Database className="w-5 h-5 text-white" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-white" />
+              )}
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Состояние базы данных</h2>
+              <p className="text-sm text-slate-400">
+                {dbStatus ? (
+                  dbStatus.status === 'OK'
+                    ? 'Все данные синхронизированы'
+                    : `Найдено ${dbStatus.orphanPins + dbStatus.orphanTasks} осиротевших записей`
+                ) : 'Проверка...'}
+              </p>
+            </div>
+          </div>
+          {dbStatus && (
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${dbStatus.status === 'OK' ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'}`}>
+              {dbStatus.status === 'OK' ? 'OK' : 'ТРЕБУЕТСЯ ОЧИСТКА'}
+            </span>
+          )}
+        </div>
+
+        {dbStatus && dbStatus.status !== 'OK' && (
+          <>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-slate-700/30 rounded-lg p-3">
+                <p className="text-sm text-slate-400">Осиротевших пинов</p>
+                <p className="text-xl font-bold text-amber-400">{dbStatus.orphanPins}</p>
+              </div>
+              <div className="bg-slate-700/30 rounded-lg p-3">
+                <p className="text-sm text-slate-400">Осиротевших задач</p>
+                <p className="text-xl font-bold text-amber-400">{dbStatus.orphanTasks}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleCleanup}
+              disabled={cleanupLoading}
+              className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg font-medium hover:bg-amber-500/30 disabled:opacity-50 flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              {cleanupLoading ? 'Очистка...' : 'Удалить осиротевшие записи'}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Revenue & Activity */}

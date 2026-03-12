@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -137,6 +137,8 @@ export default function PinterestApp() {
   const [isExtracting, setIsExtracting] = useState(false)
   const [isAddingTask, setIsAddingTask] = useState(false)
   const [isAddingPin, setIsAddingPin] = useState(false)
+  const isAddingTaskRef = useRef(false) // Для мгновенной блокировки
+  const lastTaskAddTimeRef = useRef(0) // Для защиты от быстрых кликов
   const [extractedData, setExtractedData] = useState<{imageUrl: string, title: string | null, description: string | null} | null>(null)
   const [levelProgress, setLevelProgress] = useState(0)
 
@@ -341,16 +343,24 @@ export default function PinterestApp() {
   }
 
   const handleAddTask = async () => {
-    if (!user || !newTaskTitle || isAddingTask) return
+    // Мгновенная блокировка через ref (синхронно)
+    const now = Date.now()
+    if (!user || !newTaskTitle || isAddingTaskRef.current) return
 
+    // Защита от быстрых кликов - минимум 1 секунда между попытками
+    if (now - lastTaskAddTimeRef.current < 1000) return
+
+    isAddingTaskRef.current = true
+    lastTaskAddTimeRef.current = now
     setIsAddingTask(true)
+
     try {
-      // Combine date and time for reminder
+      // Combine date and time for reminder (keep local time, don't convert to UTC)
       let reminderTime = null
       if (newTaskDueDate && newTaskReminderTime) {
-        reminderTime = new Date(`${newTaskDueDate}T${newTaskReminderTime}:00`).toISOString()
+        reminderTime = `${newTaskDueDate}T${newTaskReminderTime}:00`
       } else if (newTaskDueDate) {
-        reminderTime = new Date(`${newTaskDueDate}T12:00:00`).toISOString()
+        reminderTime = `${newTaskDueDate}T12:00:00`
       }
 
       const res = await fetch('/api/tasks', {
@@ -361,7 +371,7 @@ export default function PinterestApp() {
           title: newTaskTitle,
           description: newTaskDescription,
           priority: newTaskPriority,
-          dueDate: newTaskDueDate ? new Date(newTaskDueDate).toISOString() : null,
+          dueDate: newTaskDueDate ? `${newTaskDueDate}T12:00:00` : null,
           reminderTime
         })
       })
@@ -377,6 +387,7 @@ export default function PinterestApp() {
     } catch (error) {
       console.error('Error adding task:', error)
     } finally {
+      isAddingTaskRef.current = false
       setIsAddingTask(false)
     }
   }
@@ -603,11 +614,12 @@ export default function PinterestApp() {
                                 <div className="flex items-center gap-1 mt-1 text-xs text-primary">
                                   <Bell className="w-3 h-3" />
                                   <span>
-                                    {new Date(task.reminderTime).toLocaleDateString('ru-RU', { 
-                                      day: 'numeric', 
+                                    {new Date(task.reminderTime).toLocaleString('ru-RU', {
+                                      day: 'numeric',
                                       month: 'short',
                                       hour: '2-digit',
-                                      minute: '2-digit'
+                                      minute: '2-digit',
+                                      timeZone: 'Europe/Moscow'
                                     })}
                                   </span>
                                 </div>
@@ -1013,7 +1025,7 @@ export default function PinterestApp() {
             </Button>
             <Button
               onClick={handleAddTask}
-              disabled={!newTaskTitle}
+              disabled={!newTaskTitle || isAddingTask}
               className="gradient-lavender text-white border-0"
             >
               Создать

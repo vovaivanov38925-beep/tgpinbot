@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Search, Trash2, Eye, ChevronLeft, ChevronRight, X, Pin, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Search, Trash2, ChevronLeft, ChevronRight, X, Pin, CheckCircle2, ExternalLink } from 'lucide-react'
 
 interface User {
   id: string
@@ -66,7 +66,9 @@ export default function AdminPinsPage() {
     if (categoryFilter) params.set('category', categoryFilter)
 
     try {
-      const res = await fetch(`/api/admin/pins?${params}`)
+      const res = await fetch(`/api/admin/pins?${params}`, {
+        credentials: 'include'
+      })
       console.log('Admin pins response status:', res.status)
       const data = await res.json()
       console.log('Admin pins response data:', data)
@@ -88,7 +90,7 @@ export default function AdminPinsPage() {
 
   useEffect(() => {
     void fetchPins(1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [categoryFilter])
 
   const handleSearch = (e: React.FormEvent) => {
@@ -124,6 +126,25 @@ export default function AdminPinsPage() {
     }
   }
 
+  const handleClearAll = async () => {
+    if (!confirm('Вы уверены что хотите удалить ВСЕ пины? Это действие необратимо!')) return
+
+    try {
+      const res = await fetch('/api/admin/clear-pins', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        alert(data.message)
+        setPins([])
+        setPagination({ page: 1, limit: 20, total: 0, totalPages: 0 })
+      } else {
+        alert('Ошибка: ' + data.error)
+      }
+    } catch (err) {
+      console.error('Clear all pins error:', err)
+      alert('Ошибка при удалении пинов')
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -132,7 +153,15 @@ export default function AdminPinsPage() {
           <h1 className="text-2xl font-bold text-white">Пины</h1>
           <p className="text-slate-400 mt-1">Управление сохранёнными идеями</p>
         </div>
-        <form onSubmit={handleSearch} className="flex gap-2">
+        <div className="flex gap-2">
+          <button
+            onClick={handleClearAll}
+            className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg font-medium hover:bg-red-600/30"
+          >
+            <Trash2 className="w-4 h-4 inline mr-1" />
+            Очистить все
+          </button>
+          <form onSubmit={handleSearch} className="flex gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
@@ -160,6 +189,7 @@ export default function AdminPinsPage() {
             Найти
           </button>
         </form>
+        </div>
       </div>
 
       {/* Stats */}
