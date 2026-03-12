@@ -616,15 +616,30 @@ export default function PinterestApp() {
 
   // Delete board
   const deleteBoard = async (boardId: string) => {
-    if (!user || !confirm('Удалить доску из списка?')) return
+    if (!user) return
+    
+    const confirmed = confirm('Удалить доску и все её пины?')
+    if (!confirmed) return
 
     try {
-      await fetch('/api/pinterest/sync', {
+      const res = await fetch('/api/pinterest/sync', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boardId, userId: user.id })
+        body: JSON.stringify({ boardId, userId: user.id, deletePins: true })
       })
+      const data = await res.json()
+      
+      // Update boards list
       setBoards(boards.filter(b => b.id !== boardId))
+      
+      // Refresh pins list
+      const pinsRes = await fetch(`/api/pins?userId=${user.id}`)
+      const pinsData = await pinsRes.json()
+      setPins(Array.isArray(pinsData?.pins) ? pinsData.pins : (Array.isArray(pinsData) ? pinsData : []))
+      
+      if (data.deletedPins > 0) {
+        console.log(`Deleted ${data.deletedPins} pins`)
+      }
     } catch (error) {
       console.error('Error deleting board:', error)
     }

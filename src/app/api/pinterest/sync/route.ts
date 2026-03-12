@@ -262,11 +262,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Delete a synced board
+// Delete a synced board and its pins
 export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json()
-    const { boardId, userId } = body
+    const { boardId, userId, deletePins = true } = body
 
     if (!boardId || !userId) {
       return NextResponse.json(
@@ -287,6 +287,19 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    // Delete pins that came from this board (by sourceUrl matching boardUrl)
+    let deletedPinsCount = 0
+    if (deletePins) {
+      const deleteResult = await db.pin.deleteMany({
+        where: {
+          userId,
+          sourceUrl: board.boardUrl,
+        },
+      })
+      deletedPinsCount = deleteResult.count
+    }
+
+    // Delete the board record
     await db.pinterestBoard.delete({
       where: { id: boardId },
     })
@@ -294,6 +307,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Board removed from sync',
+      deletedPins: deletedPinsCount,
     })
   } catch (error) {
     console.error('Delete board error:', error)
