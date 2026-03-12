@@ -184,11 +184,14 @@ export default function PinterestApp() {
         let lastName = ''
         let username = null
         let photoUrl = null
+        let isRealTelegramUser = false
 
         // Check if running in Telegram
         const tg = (window as any).Telegram
         console.log('Telegram WebApp:', tg?.WebApp)
         console.log('initDataUnsafe:', tg?.WebApp?.initDataUnsafe)
+        console.log('Platform:', tg?.WebApp?.platform)
+        console.log('Version:', tg?.WebApp?.version)
 
         if (tg?.WebApp?.initDataUnsafe?.user) {
           const tgUser = tg.WebApp.initDataUnsafe.user
@@ -198,9 +201,17 @@ export default function PinterestApp() {
           lastName = tgUser.last_name || ''
           username = tgUser.username || null
           photoUrl = tgUser.photo_url || null
+          isRealTelegramUser = true
           console.log('Using Telegram data:', { telegramId, firstName, lastName, username, photoUrl })
         } else {
-          console.log('No Telegram user data found, using demo mode')
+          // Проверяем платформу
+          const platform = tg?.WebApp?.platform || 'unknown'
+          console.log('No Telegram user data found', { platform })
+
+          // Если открыто в Telegram но нет данных пользователя - возможна проблема
+          if (platform !== 'unknown' && platform !== 'web') {
+            console.warn('App opened in Telegram but no user data! Check Mini App configuration.')
+          }
         }
 
         // Create or get user
@@ -434,8 +445,26 @@ export default function PinterestApp() {
     )
   }
 
+  // Проверяем, зашел ли пользователь как гость (не через Telegram)
+  const isGuest = user?.telegramId === 'demo_user'
+
   return (
     <div className="h-dvh overflow-hidden gradient-pink flex flex-col">
+      {/* Предупреждение для гостей */}
+      {isGuest && (
+        <div className="bg-amber-500/90 text-white px-4 py-2 text-center text-sm shrink-0">
+          ⚠️ <strong>Демо-режим</strong> —{' '}
+          <a
+            href="https://t.me/PinToActionBot?startapp=1"
+            className="underline font-medium hover:no-underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            откройте через Telegram бота
+          </a>{' '}
+          для полного доступа
+        </div>
+      )}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-pink/20 shrink-0">
         <div className="max-w-lg mx-auto px-4 py-3">
