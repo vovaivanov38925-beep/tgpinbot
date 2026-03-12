@@ -716,29 +716,29 @@ export default function PinterestApp() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col">
+      <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col w-full">
         <Tabs defaultValue="pins" className="w-full flex-1 flex flex-col overflow-hidden">
-          <TabsList className="w-full bg-muted/30 shrink-0 flex gap-2 p-2 rounded-2xl min-h-[72px]">
-            <TabsTrigger value="pins" className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
-              <PinIcon className="w-6 h-6" />
-              <span className="text-sm font-medium">Пины</span>
+          <TabsList className="w-full bg-muted/30 shrink-0 flex gap-2 p-2 rounded-2xl h-[72px]">
+            <TabsTrigger value="pins" className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2 gap-1 h-full">
+              <PinIcon className="w-5 h-5" />
+              <span className="text-xs font-medium">Пины</span>
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex-1 data-[state=active]:bg-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
-              <ListTodo className="w-6 h-6" />
-              <span className="text-sm font-medium">Задачи</span>
+            <TabsTrigger value="tasks" className="flex-1 data-[state=active]:bg-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2 gap-1 h-full">
+              <ListTodo className="w-5 h-5" />
+              <span className="text-xs font-medium">Задачи</span>
             </TabsTrigger>
-            <TabsTrigger value="progress" className="flex-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
-              <Trophy className="w-6 h-6" />
-              <span className="text-sm font-medium">Прогресс</span>
+            <TabsTrigger value="progress" className="flex-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2 gap-1 h-full">
+              <Trophy className="w-5 h-5" />
+              <span className="text-xs font-medium">Прогресс</span>
             </TabsTrigger>
-            <TabsTrigger value="premium" className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
-              <Crown className="w-6 h-6" />
-              <span className="text-sm font-medium">PRO</span>
+            <TabsTrigger value="premium" className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2 gap-1 h-full">
+              <Crown className="w-5 h-5" />
+              <span className="text-xs font-medium">PRO</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Pins Tab */}
-          <TabsContent value="pins" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+          <TabsContent value="pins" className="mt-4 flex-1 flex flex-col overflow-hidden w-full data-[state=inactive]:hidden">
             <ScrollArea className="flex-1 h-0 w-full overflow-x-hidden">
               <div className="space-y-4 pr-2 pb-4 w-full max-w-full">
                 {/* Boards Section */}
