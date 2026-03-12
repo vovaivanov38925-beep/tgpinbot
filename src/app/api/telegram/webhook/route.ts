@@ -57,6 +57,32 @@ const SUPPORT_CATEGORIES = {
 }
 
 /**
+ * Отправить сообщение и сохранить ID для будущей очистки
+ */
+async function sendMessageAndSave(
+  chatId: number,
+  telegramUserId: number | undefined,
+  message: Parameters<typeof sendTelegramMessage>[0]
+) {
+  const response = await sendTelegramMessage(message)
+  const messageId = getMessageIdFromResponse(response)
+  
+  if (messageId && telegramUserId) {
+    try {
+      await db.$executeRaw`
+        INSERT INTO bot_messages (id, "telegramId", "chatId", "messageId", "createdAt")
+        VALUES (gen_random_uuid(), ${String(telegramUserId)}, ${String(chatId)}, ${messageId}, NOW())
+        ON CONFLICT ("chatId", "messageId") DO NOTHING
+      `
+    } catch (error) {
+      console.log('Failed to save message ID:', error)
+    }
+  }
+  
+  return response
+}
+
+/**
  * Telegram Webhook Handler
  * Обрабатывает сообщения от пользователей
  */
