@@ -5,7 +5,6 @@ import {
   setTelegramWebhook,
   sendPinterestSyncNotification,
   sendPinterestSyncError,
-  sendConnectedBoardsList,
   getMainKeyboard,
   getMiniAppButton,
   deleteTelegramMessage,
@@ -14,8 +13,6 @@ import {
 import { logger } from '@/lib/logger'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!
-const MINI_APP_URL = process.env.MINI_APP_URL || ''
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID! // Telegram chat ID админа для поддержки
 
 /**
  * Отправить сообщение с клавиатурой меню
@@ -140,15 +137,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true })
       }
 
-      // Команда /sync или кнопка "Синхронизировать доску"
-      if (textLower === '/sync' || text.includes('синхронизировать')) {
+      // Команда /sync - перенаправляем в Mini App
+      if (textLower === '/sync') {
         await handleSyncRequest(chatId)
-        return NextResponse.json({ ok: true })
-      }
-
-      // Команда /boards или кнопка "Мои доски"
-      if (textLower === '/boards' || text.includes('мои доски')) {
-        await handleMyBoardsCommand(chatId, from?.id)
         return NextResponse.json({ ok: true })
       }
 
@@ -456,10 +447,8 @@ async function handleHelpCommand(chatId: number) {
 3. Идея сохранится автоматически!
 
 📥 <b>Синхронизация Pinterest досок:</b>
-1. Открой Mini App
-2. Перейди в раздел "Доски"
-3. Вставь ссылку на доску: pinterest.com/username/board-name
-4. Все пины импортируются автоматически!
+Отправь ссылку на доску прямо в чат:
+pinterest.com/username/board-name
 
 ✅ <b>Задачи и напоминания:</b>
 1. Создай задачу в приложении
@@ -476,7 +465,7 @@ async function handleHelpCommand(chatId: number) {
 • Двойные очки
 • Безлимитные доски
 
-💡 <b>Подсказка:</b> Используй кнопки внизу экрана для быстрой навигации!`
+💡 <b>Подсказка:</b> Все функции синхронизации досок доступны в Mini App!`
 
   await sendTelegramMessage({
     chat_id: chatId,
@@ -1577,71 +1566,6 @@ pinterest.com/username/board-name
 Все пины с доски будут добавлены в твою коллекцию!`
 
     await sendTelegramMessage({ chat_id: chatId, text })
-  }
-}
-
-/**
- * Показать подключённые доски пользователя
- */
-async function handleMyBoardsCommand(chatId: number, telegramUserId?: number) {
-  if (!telegramUserId) {
-    await sendTelegramMessage({
-      chat_id: chatId,
-      text: '❌ Не могу определить твой аккаунт. Напиши /start',
-    })
-    return
-  }
-
-  try {
-    const user = await db.user.findUnique({
-      where: { telegramId: String(telegramUserId) },
-      include: {
-        pinterestBoards: {
-          orderBy: { lastSyncAt: 'desc' },
-          take: 5,
-        },
-      },
-    })
-
-    if (!user) {
-      await sendTelegramMessage({
-        chat_id: chatId,
-        text: '❌ Аккаунт не найден. Напиши /start для регистрации.',
-      })
-      return
-    }
-
-    // Если нет досок - направляем в Mini App
-    if (user.pinterestBoards.length === 0) {
-      if (MINI_APP_URL) {
-        await sendTelegramMessage({
-          chat_id: chatId,
-          text: `📥 <b>Подключённые доски</b>
-
-У тебя пока нет подключённых досок Pinterest.
-
-Открой Mini App чтобы:
-• Добавить доску для синхронизации
-• Настроить автоимпорт
-• Управлять коллекцией
-
-💡 <i>Или отправь ссылку на доску прямо здесь!</i>`,
-          reply_markup: getMiniAppButton(MINI_APP_URL),
-        })
-      } else {
-        await sendConnectedBoardsList(chatId, [])
-      }
-      return
-    }
-
-    // Показываем список досок
-    await sendConnectedBoardsList(chatId, user.pinterestBoards)
-  } catch (error) {
-    console.error('Error in boards command:', error)
-    await sendTelegramMessage({
-      chat_id: chatId,
-      text: '❌ Ошибка получения списка досок.',
-    })
   }
 }
 
