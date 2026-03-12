@@ -233,22 +233,22 @@ export default function PinterestApp() {
         // Get categories
         const catRes = await fetch('/api/ai/categorize')
         const catData = await catRes.json()
-        setCategories(catData)
+        setCategories(Array.isArray(catData) ? catData : [])
 
         // Get achievements
         const achRes = await fetch(`/api/achievements?userId=${userData.id}`)
         const achData = await achRes.json()
-        setAchievements(achData.length > 0 ? achData : sampleAchievements)
+        setAchievements(Array.isArray(achData) && achData.length > 0 ? achData : sampleAchievements)
 
         // Get pins
         const pinsRes = await fetch(`/api/pins?userId=${userData.id}`)
         const pinsData = await pinsRes.json()
-        setPins(pinsData)
+        setPins(Array.isArray(pinsData?.pins) ? pinsData.pins : (Array.isArray(pinsData) ? pinsData : []))
 
         // Get tasks
         const tasksRes = await fetch(`/api/tasks?userId=${userData.id}`)
         const tasksData = await tasksRes.json()
-        setTasks(tasksData)
+        setTasks(Array.isArray(tasksData?.tasks) ? tasksData.tasks : (Array.isArray(tasksData) ? tasksData : []))
 
         setLoading(false)
       } catch (error) {
