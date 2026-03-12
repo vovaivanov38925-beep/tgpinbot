@@ -1407,14 +1407,14 @@ export default function PinterestApp() {
           setScrapedBoardData(null)
         }
       }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
+        <DialogContent className="max-w-sm max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Добавить доску Pinterest</DialogTitle>
             <DialogDescription>
-              Вставьте ссылку на доску Pinterest для синхронизации всех пинов
+              Вставьте ссылку на доску Pinterest для синхронизации пинов
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 overflow-y-auto min-h-0">
             <div>
               <label className="text-sm font-medium">Ссылка на доску</label>
               <div className="flex gap-2 mt-1">
@@ -1443,16 +1443,23 @@ export default function PinterestApp() {
             </div>
 
             {scrapedBoardData && (
-              <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="font-medium text-sm">{scrapedBoardData.boardName || 'Доска'}</p>
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Layers className="w-4 h-4 text-blue-500" />
+                  <p className="font-medium text-sm">{scrapedBoardData.boardName || 'Доска'}</p>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Найдено пинов: {scrapedBoardData.pins.length}
+                  Найдено пинов: <span className="font-semibold text-blue-500">{scrapedBoardData.pins.length}</span>
                 </p>
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddBoard(false)}>
+          <DialogFooter className="shrink-0 pt-2 border-t">
+            <Button variant="outline" onClick={() => {
+              setShowAddBoard(false)
+              setNewBoardUrl('')
+              setScrapedBoardData(null)
+            }}>
               Отмена
             </Button>
             <Button

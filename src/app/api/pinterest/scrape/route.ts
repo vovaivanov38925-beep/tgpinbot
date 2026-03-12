@@ -18,10 +18,11 @@ interface ScrapeResult {
 
 // User agents for requests
 const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
 ];
 
 function getRandomUserAgent(): string {
@@ -62,23 +63,27 @@ async function scrapeBoardPage(boardUrl: string): Promise<ScrapeResult> {
   }
 
   try {
-    // Fetch the board page
-    const response = await fetch(boardUrl, {
+    // Use mobile version - simpler HTML, less JS protection
+    const mobileUrl = boardUrl.replace('www.pinterest', 'pinterest').replace('pinterest.com', 'pinterest.com');
+    
+    // Fetch the board page with mobile-like headers
+    const response = await fetch(mobileUrl, {
       headers: {
-        'User-Agent': getRandomUserAgent(),
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
         'Accept-Encoding': 'gzip, deflate, br',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
-        'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
+        'sec-ch-ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+        'sec-ch-ua-mobile': '?1',
+        'sec-ch-ua-platform': '"Android"',
         'sec-fetch-dest': 'document',
         'sec-fetch-mode': 'navigate',
         'sec-fetch-site': 'none',
         'sec-fetch-user': '?1',
         'upgrade-insecure-requests': '1',
+        'referer': 'https://www.google.com/',
       },
       redirect: 'follow',
     });
@@ -103,7 +108,7 @@ async function scrapeBoardPage(boardUrl: string): Promise<ScrapeResult> {
     const boardName = extractBoardName(html);
 
     return {
-      success: true,
+      success: pins.length > 0,
       boardName,
       boardUsername: boardInfo.username,
       pins,
@@ -206,39 +211,66 @@ function extractPinsFromHtml(html: string): ScrapedPin[] {
 // Extract pins from Pinterest's embedded JSON data
 function extractPinsFromPwsData(data: any): ScrapedPin[] {
   const pins: ScrapedPin[] = [];
+  const seenIds = new Set<string>();
 
-  function traverse(obj: any) {
-    if (!obj || typeof obj !== 'object') return;
+  function traverse(obj: any, depth = 0) {
+    if (!obj || typeof obj !== 'object' || depth > 20) return;
 
-    // Look for pin objects
-    if (obj.id && obj.images) {
-      const images = obj.images;
+    // Look for pin objects with images
+    if (obj.id && (obj.images || obj.image_url || obj.image)) {
+      if (seenIds.has(obj.id)) return;
+      seenIds.add(obj.id);
+
       let imageUrl = null;
 
-      // Try different image sizes
-      if (images.orig?.url) {
-        imageUrl = images.orig.url;
-      } else if (images['564x']?.url) {
-        imageUrl = images['564x'].url.replace('/564x/', '/originals/');
-      } else if (images['474x']?.url) {
-        imageUrl = images['474x'].url.replace('/474x/', '/originals/');
+      // Try different image formats
+      if (obj.images?.orig?.url) {
+        imageUrl = obj.images.orig.url;
+      } else if (obj.images?.['564x']?.url) {
+        imageUrl = obj.images['564x'].url.replace('/564x/', '/originals/');
+      } else if (obj.images?.['474x']?.url) {
+        imageUrl = obj.images['474x'].url.replace('/474x/', '/originals/');
+      } else if (obj.image_url) {
+        imageUrl = obj.image_url;
+      } else if (obj.image?.url) {
+        imageUrl = obj.image.url;
+      } else if (typeof obj.image === 'string') {
+        imageUrl = obj.image;
       }
 
-      if (imageUrl) {
+      if (imageUrl && imageUrl.includes('pinimg.com')) {
+        // Ensure original quality
+        if (!imageUrl.includes('/originals/')) {
+          imageUrl = imageUrl.replace(/\/\d+x\d*\//, '/originals/');
+        }
+        
         pins.push({
           imageUrl,
-          title: obj.title || obj.grid_title || null,
+          title: obj.title || obj.grid_title || obj.name || null,
           sourceUrl: obj.link || (obj.id ? `https://pinterest.com/pin/${obj.id}` : null),
-          description: obj.description || obj.grid_description || null,
+          description: obj.description || obj.grid_description || obj.text || null,
+        });
+      }
+    }
+
+    // Also look for thumbnail/url patterns
+    if (obj.url && typeof obj.url === 'string' && obj.url.includes('pinimg.com')) {
+      const imageUrl = obj.url.replace(/\/\d+x\d*\//, '/originals/');
+      if (!pins.find(p => p.imageUrl === imageUrl)) {
+        pins.push({
+          imageUrl,
+          title: obj.title || obj.name || null,
+          sourceUrl: obj.source_url || null,
+          description: obj.description || null,
         });
       }
     }
 
     // Traverse nested objects
     if (Array.isArray(obj)) {
-      obj.forEach(traverse);
+      obj.forEach(item => traverse(item, depth + 1));
     } else {
-      Object.values(obj).forEach(traverse);
+      Object.values(obj).forEach(val => traverse(val, depth + 1));
     }
   }
 
