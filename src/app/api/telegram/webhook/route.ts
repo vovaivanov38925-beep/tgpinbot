@@ -13,6 +13,8 @@ import {
 import { logger } from '@/lib/logger'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!
+const MINI_APP_URL = process.env.MINI_APP_URL || ''
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID! // Telegram chat ID админа для поддержки
 
 /**
  * Отправить сообщение с клавиатурой меню
