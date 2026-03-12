@@ -139,6 +139,7 @@ function extractPinsFromHtml(html: string): ScrapedPin[] {
     if (pwsDataMatch) {
       const jsonData = JSON.parse(pwsDataMatch[1]);
       const extractedFromJson = extractPinsFromPwsData(jsonData);
+      console.log(`[Pinterest] Extracted ${extractedFromJson.length} pins from PWS_DATA`);
       extractedFromJson.forEach(pin => {
         if (!seenUrls.has(pin.imageUrl)) {
           seenUrls.add(pin.imageUrl);
@@ -169,16 +170,10 @@ function extractPinsFromHtml(html: string): ScrapedPin[] {
       });
     }
   });
+  
+  console.log(`[Pinterest] Found ${imgMatches.length} image URLs in HTML, total unique: ${pins.length}`);
 
-  // Method 3: Extract from data-pin-id attributes
-  const pinIdRegex = /data-pin-id="([^"]+)"/g;
-  let pinIdMatch;
-  const pinIds: string[] = [];
-  while ((pinIdMatch = pinIdRegex.exec(html)) !== null) {
-    pinIds.push(pinIdMatch[1]);
-  }
-
-  // Method 4: Extract pin URLs and titles from anchor tags
+  // Method 3: Extract pin URLs and titles from anchor tags
   const pinLinkRegex = /<a[^>]*href="\/pin\/(\d+)"[^>]*>([\s\S]*?)<\/a>/gi;
   let linkMatch;
   while ((linkMatch = pinLinkRegex.exec(html)) !== null) {
@@ -205,6 +200,17 @@ function extractPinsFromHtml(html: string): ScrapedPin[] {
     }
   }
 
+  // Method 4: Extract from data-test-pin-id and other attributes
+  const dataPinRegex = /data-test-pin-id="([^"]+)"/g;
+  let dataPinMatch;
+  while ((dataPinMatch = dataPinRegex.exec(html)) !== null) {
+    const pinId = dataPinMatch[1];
+    // Construct image URL from pin ID if not already found
+    const possibleUrl = `https://i.pinimg.com/originals/${pinId.slice(0, 2)}/${pinId.slice(2, 4)}/${pinId.slice(4, 6)}/${pinId}.jpg`;
+    // This is a guess, Pinterest doesn't have a predictable URL pattern from ID alone
+  }
+
+  console.log(`[Pinterest] Total pins extracted: ${pins.length}`);
   return pins;
 }
 

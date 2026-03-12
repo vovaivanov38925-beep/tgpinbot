@@ -1464,8 +1464,11 @@ export default function PinterestApp() {
                   <Layers className="w-4 h-4 text-blue-500 shrink-0" />
                   <p className="font-medium text-sm truncate">{scrapedBoardData.boardName || 'Доска'}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground mb-1">
                   Найдено пинов: <span className="font-semibold text-blue-500">{scrapedBoardData.pins.length}</span>
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  ⚠️ Pinterest загружает не все пины сразу. Если пинов меньше чем в оригинале, синхронизируйте доску позже ещё раз.
                 </p>
               </div>
             )}
