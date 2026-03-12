@@ -151,6 +151,13 @@ export async function POST(request: NextRequest) {
           await handleTicketReply(chatId, from?.id, ticketId, text)
           return NextResponse.json({ ok: true })
         }
+
+        // Если админ отвечает на тикет
+        if (user.botState.startsWith('admin:reply:')) {
+          const ticketId = user.botState.replace('admin:reply:', '')
+          await handleAdminReplyMessage(chatId, from?.id, ticketId, text)
+          return NextResponse.json({ ok: true })
+        }
       }
 
       // Неизвестная команда
@@ -183,6 +190,11 @@ export async function POST(request: NextRequest) {
         // Обработка callbacks для тикетов
         if (data.startsWith('ticket_')) {
           await handleTicketCallback(chatId, fromId, data)
+        }
+
+        // Обработка callbacks для админа
+        if (data.startsWith('admin_')) {
+          await handleAdminCallback(chatId, fromId, data)
         }
       }
 
@@ -665,6 +677,9 @@ ${message}
     inline_keyboard: [
       [
         { text: '✍️ Ответить', callback_data: `admin_reply_${ticket.id}` },
+      ],
+      [
+        { text: '🔧 Взять в работу', callback_data: `admin_take_${ticket.id}` },
         { text: '✅ Закрыть', callback_data: `admin_close_${ticket.id}` },
       ],
     ]
@@ -1095,6 +1110,255 @@ async function closeTicket(chatId: number, ticketId: string) {
     await sendTelegramMessage({
       chat_id: chatId,
       text: '❌ Ошибка при закрытии тикета.',
+    })
+  }
+}
+
+/**
+ * Обработка callback для админа
+ */
+async function handleAdminCallback(chatId: number | undefined, fromId: number, data: string) {
+  if (!chatId) return
+
+  // Админ: ответить на тикет
+  if (data.startsWith('admin_reply_')) {
+    const ticketId = data.replace('admin_reply_', '')
+    await prepareAdminReply(chatId, fromId, ticketId)
+    return
+  }
+
+  // Админ: закрыть тикет
+  if (data.startsWith('admin_close_')) {
+    const ticketId = data.replace('admin_close_', '')
+    await closeTicket(chatId, ticketId)
+    return
+  }
+
+  // Админ: взять в работу
+  if (data.startsWith('admin_take_')) {
+    const ticketId = data.replace('admin_take_', '')
+    await takeTicket(chatId, fromId, ticketId)
+    return
+  }
+}
+
+/**
+ * Подготовка ответа админа на тикет
+ */
+async function prepareAdminReply(chatId: number, adminId: number, ticketId: string) {
+  try {
+    const ticket = await db.supportTicket.findUnique({
+      where: { id: ticketId },
+      include: { user: true }
+    })
+
+    if (!ticket) {
+      await sendTelegramMessage({
+        chat_id: chatId,
+        text: '❌ Тикет не найден.',
+      })
+      return
+    }
+
+    const shortId = ticketId.slice(-8).toUpperCase()
+
+    // Создаём или обновляем админа в базе и устанавливаем режим ответа
+    await db.user.upsert({
+      where: { telegramId: String(adminId) },
+      create: {
+        telegramId: String(adminId),
+        telegramChatId: String(chatId),
+        firstName: 'Admin',
+        botState: `admin:reply:${ticketId}`,
+      },
+      update: {
+        botState: `admin:reply:${ticketId}`,
+      }
+    })
+
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: `✍️ <b>Ответ на тикет #${shortId}</b>
+
+👤 Пользователь: ${ticket.user.firstName || 'Без имени'}
+📁 Категория: ${SUPPORT_CATEGORIES[ticket.category as keyof typeof SUPPORT_CATEGORIES]?.label || 'Общий'}
+
+💬 <b>Последнее сообщение:</b>
+${ticket.lastMessage || ticket.firstMessage}
+
+━━━━━━━━━━━━━━━━━━━━
+
+📝 <b>Напиши ответ:</b>
+
+💡 <i>Для отмены нажми любую кнопку меню.</i>`,
+    })
+  } catch (error) {
+    console.error('Error preparing admin reply:', error)
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Ошибка.',
+    })
+  }
+}
+
+/**
+ * Взять тикет в работу
+ */
+async function takeTicket(chatId: number, adminId: number, ticketId: string) {
+  try {
+    const ticket = await db.supportTicket.update({
+      where: { id: ticketId },
+      data: {
+        status: 'in_progress',
+        assignedTo: String(adminId),
+        assignedAt: new Date(),
+      },
+      include: { user: true }
+    })
+
+    const shortId = ticketId.slice(-8).toUpperCase()
+
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: `✅ <b>Тикет #${shortId} взят в работу</b>
+
+👤 Пользователь: ${ticket.user.firstName || 'Без имени'}
+📁 Категория: ${SUPPORT_CATEGORIES[ticket.category as keyof typeof SUPPORT_CATEGORIES]?.label || 'Общий'}`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✍️ Ответить', callback_data: `admin_reply_${ticketId}` },
+            { text: '✅ Закрыть', callback_data: `admin_close_${ticketId}` },
+          ],
+        ]
+      }
+    })
+
+    // Уведомляем пользователя
+    await sendTelegramMessage({
+      chat_id: Number(ticket.chatId),
+      text: `👨‍💼 <b>Ваше обращение в работе</b>
+
+🎫 Тикет #${shortId} взят специалистом на рассмотрение.
+
+Скоро вам ответят!`,
+    })
+
+    await logger.info('telegram', 'Ticket taken by admin', { ticketId, adminId })
+  } catch (error) {
+    console.error('Error taking ticket:', error)
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Ошибка.',
+    })
+  }
+}
+
+/**
+ * Обработка ответа админа на тикет
+ */
+async function handleAdminReplyMessage(chatId: number, adminId: number | undefined, ticketId: string, message: string) {
+  if (!adminId) return
+
+  try {
+    const ticket = await db.supportTicket.findUnique({
+      where: { id: ticketId },
+      include: { user: true }
+    })
+
+    if (!ticket) {
+      await sendTelegramMessage({
+        chat_id: chatId,
+        text: '❌ Тикет не найден.',
+      })
+      return
+    }
+
+    if (ticket.status === 'closed') {
+      await sendTelegramMessage({
+        chat_id: chatId,
+        text: '❌ Этот тикет уже закрыт.',
+      })
+      return
+    }
+
+    // Сохраняем сообщение
+    await db.supportMessage.create({
+      data: {
+        ticketId: ticket.id,
+        senderType: 'admin',
+        senderId: String(adminId),
+        senderName: 'Поддержка',
+        message,
+      }
+    })
+
+    // Обновляем тикет
+    await db.supportTicket.update({
+      where: { id: ticketId },
+      data: {
+        lastMessage: message,
+        lastMessageAt: new Date(),
+        lastMessageFrom: 'admin',
+        status: 'waiting_user',
+      }
+    })
+
+    // Сбрасываем состояние админа
+    await db.user.update({
+      where: { telegramId: String(adminId) },
+      data: { botState: null }
+    })
+
+    const shortId = ticketId.slice(-8).toUpperCase()
+
+    // Подтверждение админу
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: `✅ <b>Ответ отправлен!</b>
+
+🎫 Тикет: #${shortId}
+👤 Пользователю: ${ticket.user.firstName || 'Без имени'}`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✍️ Ещё ответ', callback_data: `admin_reply_${ticketId}` },
+            { text: '✅ Закрыть тикет', callback_data: `admin_close_${ticketId}` },
+          ],
+        ]
+      }
+    })
+
+    // Отправляем ответ пользователю
+    const userText = `👨‍💼 <b>Ответ поддержки</b>
+
+🎫 <b>Тикет:</b> #${shortId}
+
+💬 <b>Сообщение:</b>
+${message}
+
+━━━━━━━━━━━━━━━━━━━━
+👇 Нажми кнопку ниже, чтобы ответить.`
+
+    await sendTelegramMessage({
+      chat_id: Number(ticket.chatId),
+      text: userText,
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '💬 Ответить', callback_data: `ticket_reply_${ticketId}` }],
+        ]
+      }
+    })
+
+    await logger.info('telegram', 'Admin replied to ticket', {
+      ticketId,
+      adminId
+    })
+  } catch (error) {
+    console.error('Error in admin reply:', error)
+    await sendTelegramMessage({
+      chat_id: chatId,
+      text: '❌ Ошибка отправки ответа.',
     })
   }
 }
