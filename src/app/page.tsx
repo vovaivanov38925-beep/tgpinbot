@@ -1422,22 +1422,23 @@ export default function PinterestApp() {
           setScrapedBoardData(null)
         }
       }}>
-        <DialogContent className="max-w-sm max-h-[85vh] flex flex-col">
-          <DialogHeader className="shrink-0">
+        <DialogContent className="sm:max-w-[400px] max-w-[calc(100vw-32px)] w-full overflow-hidden">
+          <DialogHeader>
             <DialogTitle>Добавить доску Pinterest</DialogTitle>
             <DialogDescription>
               Вставьте ссылку на доску Pinterest для синхронизации пинов
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 flex-1 overflow-y-auto min-h-0">
+          <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Ссылка на доску</label>
               <div className="flex gap-2 mt-1">
                 <Input
-                  placeholder="https://pinterest.com/username/board-name"
+                  placeholder="pinterest.com/username/board"
                   value={newBoardUrl}
                   onChange={(e) => setNewBoardUrl(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && scrapeBoard(newBoardUrl)}
+                  className="flex-1 min-w-0"
                 />
                 <Button 
                   onClick={() => scrapeBoard(newBoardUrl)}
@@ -1460,8 +1461,8 @@ export default function PinterestApp() {
             {scrapedBoardData && (
               <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
-                  <Layers className="w-4 h-4 text-blue-500" />
-                  <p className="font-medium text-sm">{scrapedBoardData.boardName || 'Доска'}</p>
+                  <Layers className="w-4 h-4 text-blue-500 shrink-0" />
+                  <p className="font-medium text-sm truncate">{scrapedBoardData.boardName || 'Доска'}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Найдено пинов: <span className="font-semibold text-blue-500">{scrapedBoardData.pins.length}</span>
@@ -1469,18 +1470,18 @@ export default function PinterestApp() {
               </div>
             )}
           </div>
-          <DialogFooter className="shrink-0 pt-2 border-t">
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => {
               setShowAddBoard(false)
               setNewBoardUrl('')
               setScrapedBoardData(null)
-            }}>
+            }} className="w-full sm:w-auto">
               Отмена
             </Button>
             <Button
               onClick={syncBoard}
               disabled={!scrapedBoardData || isSyncingBoard === 'new'}
-              className="bg-blue-500 hover:bg-blue-600 text-white border-0"
+              className="bg-blue-500 hover:bg-blue-600 text-white border-0 w-full sm:w-auto"
             >
               {isSyncingBoard === 'new' ? (
                 <>
