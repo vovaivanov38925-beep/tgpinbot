@@ -53,7 +53,10 @@ import {
   X,
   ExternalLink,
   ChevronRight,
-  Gift
+  Gift,
+  Layers,
+  RefreshCw,
+  Link
 } from 'lucide-react'
 
 // Icon mapping for categories
@@ -101,6 +104,20 @@ const sampleAchievements: Achievement[] = [
   { id: '6', name: 'Премиум', description: 'Оформите премиум подписку', icon: 'Diamond', category: 'premium', requirement: 1, points: 100, unlocked: false }
 ]
 
+// Pinterest Board interface
+interface PinterestBoard {
+  id: string
+  boardUrl: string
+  boardName: string | null
+  boardUsername: string | null
+  lastSyncAt: string | null
+  totalPins: number
+  newPins: number
+  isActive: boolean
+  autoSync: boolean
+  createdAt: string
+}
+
 export default function PinterestApp() {
   const {
     user,
@@ -141,6 +158,14 @@ export default function PinterestApp() {
   const lastTaskAddTimeRef = useRef(0) // Для защиты от быстрых кликов
   const [extractedData, setExtractedData] = useState<{imageUrl: string, title: string | null, description: string | null, sourceUrl: string | null} | null>(null)
   const [levelProgress, setLevelProgress] = useState(0)
+
+  // Boards state
+  const [boards, setBoards] = useState<PinterestBoard[]>([])
+  const [showAddBoard, setShowAddBoard] = useState(false)
+  const [newBoardUrl, setNewBoardUrl] = useState('')
+  const [isScrapingBoard, setIsScrapingBoard] = useState(false)
+  const [isSyncingBoard, setIsSyncingBoard] = useState<string | null>(null)
+  const [scrapedBoardData, setScrapedBoardData] = useState<{boardName: string | null, pins: any[]} | null>(null)
 
   // Initialize data
   useEffect(() => {
@@ -249,6 +274,11 @@ export default function PinterestApp() {
         const tasksRes = await fetch(`/api/tasks?userId=${userData.id}`)
         const tasksData = await tasksRes.json()
         setTasks(Array.isArray(tasksData?.tasks) ? tasksData.tasks : (Array.isArray(tasksData) ? tasksData : []))
+
+        // Get boards
+        const boardsRes = await fetch(`/api/pinterest/sync?userId=${userData.id}`)
+        const boardsData = await boardsRes.json()
+        setBoards(Array.isArray(boardsData?.boards) ? boardsData.boards : [])
 
         setLoading(false)
       } catch (error) {
@@ -438,6 +468,168 @@ export default function PinterestApp() {
     }
   }
 
+  // Scrape board URL
+  const scrapeBoard = async (url: string) => {
+    if (!url) return
+
+    setIsScrapingBoard(true)
+    setScrapedBoardData(null)
+
+    try {
+      const res = await fetch('/api/pinterest/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boardUrl: url })
+      })
+      const data = await res.json()
+
+      if (data.success && data.pins.length > 0) {
+        setScrapedBoardData({
+          boardName: data.boardName,
+          pins: data.pins
+        })
+      } else {
+        alert(data.error || 'Не удалось получить пины с доски')
+      }
+    } catch (error) {
+      console.error('Error scraping board:', error)
+      alert('Ошибка при скрейпинге доски')
+    } finally {
+      setIsScrapingBoard(false)
+    }
+  }
+
+  // Sync board pins
+  const syncBoard = async () => {
+    if (!user || !newBoardUrl || !scrapedBoardData) return
+
+    setIsSyncingBoard('new')
+
+    try {
+      const res = await fetch('/api/pinterest/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          boardUrl: newBoardUrl,
+          pins: scrapedBoardData.pins,
+          boardName: scrapedBoardData.boardName,
+          boardUsername: null
+        })
+      })
+      const data = await res.json()
+
+      if (data.success) {
+        alert(`Синхронизация завершена!\nДобавлено: ${data.newPinsAdded} пинов\n+${data.pointsEarned} очков`)
+
+        // Refresh boards
+        const boardsRes = await fetch(`/api/pinterest/sync?userId=${user.id}`)
+        const boardsData = await boardsRes.json()
+        setBoards(Array.isArray(boardsData?.boards) ? boardsData.boards : [])
+
+        // Refresh pins
+        const pinsRes = await fetch(`/api/pins?userId=${user.id}`)
+        const pinsData = await pinsRes.json()
+        setPins(Array.isArray(pinsData?.pins) ? pinsData.pins : (Array.isArray(pinsData) ? pinsData : []))
+
+        // Update user points
+        if (user && data.pointsEarned) {
+          setUser({ ...user, points: user.points + data.pointsEarned })
+        }
+
+        setShowAddBoard(false)
+        setNewBoardUrl('')
+        setScrapedBoardData(null)
+      } else {
+        alert(data.error || 'Ошибка синхронизации')
+      }
+    } catch (error) {
+      console.error('Error syncing board:', error)
+      alert('Ошибка при синхронизации')
+    } finally {
+      setIsSyncingBoard(null)
+    }
+  }
+
+  // Re-sync existing board
+  const resyncBoard = async (board: PinterestBoard) => {
+    if (!user) return
+
+    setIsSyncingBoard(board.id)
+
+    try {
+      // First scrape
+      const scrapeRes = await fetch('/api/pinterest/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boardUrl: board.boardUrl })
+      })
+      const scrapeData = await scrapeRes.json()
+
+      if (!scrapeData.success || scrapeData.pins.length === 0) {
+        alert('Не удалось получить пины с доски')
+        setIsSyncingBoard(null)
+        return
+      }
+
+      // Then sync
+      const syncRes = await fetch('/api/pinterest/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          boardUrl: board.boardUrl,
+          pins: scrapeData.pins,
+          boardName: scrapeData.boardName || board.boardName,
+          boardUsername: board.boardUsername
+        })
+      })
+      const syncData = await syncRes.json()
+
+      if (syncData.success) {
+        alert(`Синхронизация завершена!\nДобавлено: ${syncData.newPinsAdded} новых пинов`)
+
+        // Refresh boards
+        const boardsRes = await fetch(`/api/pinterest/sync?userId=${user.id}`)
+        const boardsData = await boardsRes.json()
+        setBoards(Array.isArray(boardsData?.boards) ? boardsData.boards : [])
+
+        // Refresh pins
+        const pinsRes = await fetch(`/api/pins?userId=${user.id}`)
+        const pinsData = await pinsRes.json()
+        setPins(Array.isArray(pinsData?.pins) ? pinsData.pins : (Array.isArray(pinsData) ? pinsData : []))
+
+        // Update user points
+        if (user && syncData.pointsEarned) {
+          setUser({ ...user, points: user.points + syncData.pointsEarned })
+        }
+      } else {
+        alert(syncData.error || 'Ошибка синхронизации')
+      }
+    } catch (error) {
+      console.error('Error resyncing board:', error)
+      alert('Ошибка при синхронизации')
+    } finally {
+      setIsSyncingBoard(null)
+    }
+  }
+
+  // Delete board
+  const deleteBoard = async (boardId: string) => {
+    if (!user || !confirm('Удалить доску из списка?')) return
+
+    try {
+      await fetch('/api/pinterest/sync', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boardId, userId: user.id })
+      })
+      setBoards(boards.filter(b => b.id !== boardId))
+    } catch (error) {
+      console.error('Error deleting board:', error)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center gradient-pink">
@@ -516,6 +708,10 @@ export default function PinterestApp() {
               <PinIcon className="w-6 h-6" />
               <span className="text-sm font-medium">Пины</span>
             </TabsTrigger>
+            <TabsTrigger value="boards" className="flex-1 data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
+              <Layers className="w-6 h-6" />
+              <span className="text-sm font-medium">Доски</span>
+            </TabsTrigger>
             <TabsTrigger value="tasks" className="flex-1 data-[state=active]:bg-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
               <ListTodo className="w-6 h-6" />
               <span className="text-sm font-medium">Задачи</span>
@@ -523,10 +719,6 @@ export default function PinterestApp() {
             <TabsTrigger value="progress" className="flex-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
               <Trophy className="w-6 h-6" />
               <span className="text-sm font-medium">Прогресс</span>
-            </TabsTrigger>
-            <TabsTrigger value="premium" className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:via-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
-              <Diamond className="w-6 h-6" />
-              <span className="text-sm font-medium">Премиум</span>
             </TabsTrigger>
           </TabsList>
 
@@ -711,6 +903,90 @@ export default function PinterestApp() {
                       </div>
                     )}
                   </>
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+
+          {/* Boards Tab */}
+          <TabsContent value="boards" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <h2 className="text-lg font-semibold">Мои доски</h2>
+              <Button
+                onClick={() => setShowAddBoard(true)}
+                size="sm"
+                className="bg-blue-500 hover:bg-blue-600 text-white border-0 shadow-soft"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Добавить
+              </Button>
+            </div>
+
+            <ScrollArea className="flex-1 h-0">
+              <div className="space-y-3 pr-2 pb-4">
+                {boards.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <Layers className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <p className="text-muted-foreground mb-4">Нет подключённых досок</p>
+                    <p className="text-sm text-muted-foreground/70">
+                      Добавьте ссылку на доску Pinterest для синхронизации пинов
+                    </p>
+                  </div>
+                ) : (
+                  boards.map((board) => (
+                    <Card key={board.id} className="border-blue-500/20 hover:shadow-lg transition-all duration-300">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
+                            <Layers className="w-6 h-6 text-blue-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{board.boardName || 'Доска без названия'}</p>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {board.boardUrl}
+                            </p>
+                            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <PinIcon className="w-3 h-3" />
+                                {board.totalPins} пинов
+                              </span>
+                              {board.lastSyncAt && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {new Date(board.lastSyncAt).toLocaleDateString('ru-RU')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
+                              onClick={() => resyncBoard(board)}
+                              disabled={isSyncingBoard === board.id}
+                            >
+                              {isSyncingBoard === board.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => deleteBoard(board.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
                 )}
               </div>
             </ScrollArea>
@@ -1119,6 +1395,83 @@ export default function PinterestApp() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Board Dialog */}
+      <Dialog open={showAddBoard} onOpenChange={(open) => {
+        setShowAddBoard(open)
+        if (!open) {
+          setNewBoardUrl('')
+          setScrapedBoardData(null)
+        }
+      }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Добавить доску Pinterest</DialogTitle>
+            <DialogDescription>
+              Вставьте ссылку на доску Pinterest для синхронизации всех пинов
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Ссылка на доску</label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  placeholder="https://pinterest.com/username/board-name"
+                  value={newBoardUrl}
+                  onChange={(e) => setNewBoardUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && scrapeBoard(newBoardUrl)}
+                />
+                <Button 
+                  onClick={() => scrapeBoard(newBoardUrl)}
+                  disabled={!newBoardUrl || isScrapingBoard}
+                  size="icon"
+                  className="bg-blue-500 hover:bg-blue-600 text-white border-0 shrink-0"
+                >
+                  {isScrapingBoard ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Link className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Формат: pinterest.com/username/board-name
+              </p>
+            </div>
+
+            {scrapedBoardData && (
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="font-medium text-sm">{scrapedBoardData.boardName || 'Доска'}</p>
+                <p className="text-xs text-muted-foreground">
+                  Найдено пинов: {scrapedBoardData.pins.length}
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddBoard(false)}>
+              Отмена
+            </Button>
+            <Button
+              onClick={syncBoard}
+              disabled={!scrapedBoardData || isSyncingBoard === 'new'}
+              className="bg-blue-500 hover:bg-blue-600 text-white border-0"
+            >
+              {isSyncingBoard === 'new' ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Синхронизация...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Синхронизировать
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
