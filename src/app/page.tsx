@@ -1432,16 +1432,16 @@ export default function PinterestApp() {
               Вставьте ссылку на доску Pinterest для синхронизации пинов
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4 w-full overflow-hidden">
+            <div className="w-full">
               <label className="text-sm font-medium">Ссылка на доску</label>
-              <div className="flex gap-2 mt-1">
+              <div className="flex gap-2 mt-1 w-full overflow-hidden">
                 <Input
                   placeholder="pinterest.com/username/board"
                   value={newBoardUrl}
                   onChange={(e) => setNewBoardUrl(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && scrapeBoard(newBoardUrl)}
-                  className="flex-1 min-w-0"
+                  className="flex-1 min-w-0 w-full overflow-hidden"
                 />
                 <Button 
                   onClick={() => scrapeBoard(newBoardUrl)}
@@ -1462,7 +1462,7 @@ export default function PinterestApp() {
             </div>
 
             {scrapedBoardData && (
-              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg w-full overflow-hidden">
                 <div className="flex items-center gap-2 mb-2">
                   <Layers className="w-4 h-4 text-blue-500 shrink-0" />
                   <p className="font-medium text-sm truncate">{scrapedBoardData.boardName || 'Доска'}</p>
@@ -1470,7 +1470,7 @@ export default function PinterestApp() {
                 <p className="text-xs text-muted-foreground mb-1">
                   Найдено пинов: <span className="font-semibold text-blue-500">{scrapedBoardData.pins.length}</span>
                 </p>
-                <p className="text-xs text-amber-600 dark:text-amber-400">
+                <p className="text-xs text-amber-600 dark:text-amber-400 break-words">
                   ⚠️ Pinterest загружает не все пины сразу. Если пинов меньше чем в оригинале, синхронизируйте доску позже ещё раз.
                 </p>
               </div>
