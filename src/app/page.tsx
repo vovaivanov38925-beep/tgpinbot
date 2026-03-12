@@ -733,14 +733,14 @@ export default function PinterestApp() {
             </TabsTrigger>
             <TabsTrigger value="premium" className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-3 gap-1.5">
               <Crown className="w-6 h-6" />
-              <span className="text-sm font-medium">VIP</span>
+              <span className="text-sm font-medium">PRO</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Pins Tab */}
           <TabsContent value="pins" className="mt-4 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-            <ScrollArea className="flex-1 h-0">
-              <div className="pr-2 pb-4">
+            <ScrollArea className="flex-1 h-0 w-full overflow-x-hidden">
+              <div className="w-full max-w-full pr-2 pb-4">
                 {/* Boards Section */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
@@ -760,7 +760,7 @@ export default function PinterestApp() {
                   </div>
 
                   {boards.length === 0 ? (
-                    <Card className="border-dashed border-blue-500/30 bg-blue-500/5">
+                    <Card className="border-dashed border-blue-500/30 bg-blue-500/5 w-full">
                       <CardContent className="p-4 text-center">
                         <p className="text-sm text-muted-foreground mb-2">Нет подключённых досок</p>
                         <p className="text-xs text-muted-foreground/70">
@@ -769,9 +769,9 @@ export default function PinterestApp() {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-2 w-full">
                       {boards.map((board) => (
-                        <Card key={board.id} className="border-blue-500/20 hover:shadow-lg transition-all duration-300">
+                        <Card key={board.id} className="border-blue-500/20 hover:shadow-lg transition-all duration-300 w-full overflow-hidden">
                           <CardContent className="p-3">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
@@ -836,7 +836,7 @@ export default function PinterestApp() {
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 w-full">
                   {pins.length === 0 ? (
                     <div className="col-span-2 text-center py-8">
                       <div className="w-14 h-14 mx-auto mb-3 rounded-full gradient-lavender flex items-center justify-center">
@@ -851,7 +851,7 @@ export default function PinterestApp() {
                     pins.map((pin, index) => (
                     <Card
                       key={pin.id || `pin-${index}`}
-                      className="overflow-hidden cursor-pointer hover:shadow-pink transition-all duration-300 border-pink/10"
+                      className="overflow-hidden cursor-pointer hover:shadow-pink transition-all duration-300 border-pink/10 w-full"
                       onClick={() => setSelectedPin(pin)}
                     >
                       <div className="aspect-square relative">
