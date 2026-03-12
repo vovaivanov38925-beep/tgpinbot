@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   Users, Pin, CheckCircle2, Crown, TrendingUp,
-  DollarSign, Activity, Clock
+  DollarSign, Activity, Clock, Trash2, AlertTriangle
 } from 'lucide-react'
 
 interface Stats {
@@ -38,8 +38,10 @@ export default function AdminDashboard() {
   const [recentUsers, setRecentUsers] = useState<RecentUser[]>([])
   const [recentLogs, setRecentLogs] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [cleanupLoading, setCleanupLoading] = useState(false)
 
-  useEffect(() => {
+  const fetchStats = () => {
+    setLoading(true)
     fetch('/api/admin/stats')
       .then(res => res.json())
       .then(data => {
@@ -49,7 +51,27 @@ export default function AdminDashboard() {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    fetchStats()
   }, [])
+
+  const handleCleanup = async () => {
+    if (!confirm('Удалить осиротевшие записи (пины и задачи без пользователей)?')) return
+    setCleanupLoading(true)
+    try {
+      const res = await fetch('/api/admin/cleanup', { method: 'POST' })
+      const data = await res.json()
+      alert(data.message)
+      fetchStats()
+    } catch (err) {
+      console.error(err)
+      alert('Ошибка при очистке')
+    } finally {
+      setCleanupLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -101,6 +123,32 @@ export default function AdminDashboard() {
             <p className="text-sm text-slate-400 mt-1">{stat.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Maintenance Tools */}
+      <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-amber-500/30">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Инструменты обслуживания</h2>
+            <p className="text-sm text-slate-400">Очистка и исправление данных</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleCleanup}
+            disabled={cleanupLoading}
+            className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg font-medium hover:bg-amber-500/30 disabled:opacity-50 flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            {cleanupLoading ? 'Очистка...' : 'Удалить осиротевшие записи'}
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 mt-3">
+          Удаляет пины и задачи, которые ссылаются на несуществующих пользователей
+        </p>
       </div>
 
       {/* Revenue & Activity */}
