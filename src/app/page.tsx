@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore, type Pin, type Task, type Achievement } from '@/lib/store'
+import { useToast } from '@/hooks/use-toast'
 import {
   Pin as PinIcon,
   CheckCircle2,
@@ -139,6 +140,21 @@ export default function PinterestApp() {
     setCategories,
     setLoading
   } = useStore()
+
+  const { toast } = useToast()
+
+  // Helper for showing notifications (uses Telegram WebApp API or toast)
+  const showNotification = (message: string, title?: string) => {
+    const tg = (window as any).Telegram?.WebApp
+    if (tg?.showAlert) {
+      tg.showAlert(message)
+    } else {
+      toast({
+        title: title || 'Уведомление',
+        description: message,
+      })
+    }
+  }
 
   const [showAddPin, setShowAddPin] = useState(false)
   const [showAddTask, setShowAddTask] = useState(false)
@@ -489,11 +505,11 @@ export default function PinterestApp() {
           pins: data.pins
         })
       } else {
-        alert(data.error || 'Не удалось получить пины с доски')
+        showNotification(data.error || 'Не удалось получить пины с доски')
       }
     } catch (error) {
       console.error('Error scraping board:', error)
-      alert('Ошибка при скрейпинге доски')
+      showNotification('Ошибка при скрейпинге доски')
     } finally {
       setIsScrapingBoard(false)
     }
@@ -520,7 +536,7 @@ export default function PinterestApp() {
       const data = await res.json()
 
       if (data.success) {
-        alert(`Синхронизация завершена!\nДобавлено: ${data.newPinsAdded} пинов\n+${data.pointsEarned} очков`)
+        showNotification(`Синхронизация завершена!\nДобавлено: ${data.newPinsAdded} пинов\n+${data.pointsEarned} очков`, 'Успешно')
 
         // Refresh boards
         const boardsRes = await fetch(`/api/pinterest/sync?userId=${user.id}`)
@@ -541,11 +557,11 @@ export default function PinterestApp() {
         setNewBoardUrl('')
         setScrapedBoardData(null)
       } else {
-        alert(data.error || 'Ошибка синхронизации')
+        showNotification(data.error || 'Ошибка синхронизации')
       }
     } catch (error) {
       console.error('Error syncing board:', error)
-      alert('Ошибка при синхронизации')
+      showNotification('Ошибка при синхронизации')
     } finally {
       setIsSyncingBoard(null)
     }
@@ -567,7 +583,7 @@ export default function PinterestApp() {
       const scrapeData = await scrapeRes.json()
 
       if (!scrapeData.success || scrapeData.pins.length === 0) {
-        alert('Не удалось получить пины с доски')
+        showNotification('Не удалось получить пины с доски')
         setIsSyncingBoard(null)
         return
       }
@@ -587,7 +603,7 @@ export default function PinterestApp() {
       const syncData = await syncRes.json()
 
       if (syncData.success) {
-        alert(`Синхронизация завершена!\nДобавлено: ${syncData.newPinsAdded} новых пинов`)
+        showNotification(`Синхронизация завершена!\nДобавлено: ${syncData.newPinsAdded} новых пинов`, 'Успешно')
 
         // Refresh boards
         const boardsRes = await fetch(`/api/pinterest/sync?userId=${user.id}`)
@@ -604,11 +620,11 @@ export default function PinterestApp() {
           setUser({ ...user, points: user.points + syncData.pointsEarned })
         }
       } else {
-        alert(syncData.error || 'Ошибка синхронизации')
+        showNotification(syncData.error || 'Ошибка синхронизации')
       }
     } catch (error) {
       console.error('Error resyncing board:', error)
-      alert('Ошибка при синхронизации')
+      showNotification('Ошибка при синхронизации')
     } finally {
       setIsSyncingBoard(null)
     }
