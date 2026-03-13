@@ -897,7 +897,7 @@ export default function PinterestApp() {
                           </div>
                           <CardContent className="p-3">
                             <p className="font-medium text-sm truncate">{pin.title || 'Без названия'}</p>
-                            <p className="text-xs text-muted-foreground truncate">{pin.description || ''}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{pin.description || ''}</p>
                           </CardContent>
                         </Card>
                       ))}
