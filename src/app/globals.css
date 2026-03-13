@@ -135,9 +135,18 @@
     @apply bg-background text-foreground;
     overflow-x: hidden;
     max-width: 100vw;
+    width: 100%;
   }
   body {
     width: 100%;
+  }
+  /* Force grid items to not overflow */
+  .grid {
+    min-width: 0;
+  }
+  .grid > * {
+    min-width: 0;
+    max-width: 100%;
   }
 }
 

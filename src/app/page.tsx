@@ -678,7 +678,7 @@ export default function PinterestApp() {
   const isGuest = user?.telegramId === 'demo_user'
 
   return (
-    <div className="h-dvh overflow-hidden overflow-x-hidden gradient-pink flex flex-col">
+    <div className="h-dvh w-screen max-w-[100vw] overflow-hidden gradient-pink flex flex-col">
       {/* Предупреждение для гостей */}
       {isGuest && (
         <div className="bg-amber-500/90 text-white px-4 py-2 text-center text-sm shrink-0">
@@ -864,37 +864,40 @@ export default function PinterestApp() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 w-full overflow-hidden">
+                    <div className="grid grid-cols-2 gap-3">
                       {pins.map((pin, index) => (
                         <Card
                           key={pin.id || `pin-${index}`}
-                          className="overflow-hidden cursor-pointer hover:shadow-pink transition-all duration-300 border-pink/10 min-w-0"
+                          className="overflow-hidden cursor-pointer hover:shadow-pink transition-all duration-300 border-pink/10"
                           onClick={() => setSelectedPin(pin)}
                         >
-                          <div className="aspect-square relative overflow-hidden">
+                          <div className="aspect-square relative bg-muted">
                             <img
                               src={pin.imageUrl}
                               alt={pin.title || 'Pin'}
                               className="absolute inset-0 w-full h-full object-cover"
                               loading="lazy"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none'
+                              }}
                             />
                             {pin.isCompleted && (
-                              <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                              <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center z-10">
                                 <CheckCircle2 className="w-4 h-4 text-white" />
                               </div>
                             )}
                             {pin.category && (
-                              <div className="absolute bottom-2 left-2">
-                                <Badge variant="secondary" className="bg-white/90 text-xs">
+                              <div className="absolute bottom-2 left-2 z-10">
+                                <Badge variant="secondary" className="bg-white/90 text-xs max-w-[100px] truncate">
                                   {categoryIcons[pin.category]}
-                                  <span className="ml-1">{categories.find(c => c.id === pin.category)?.name || pin.category}</span>
+                                  <span className="ml-1 truncate">{categories.find(c => c.id === pin.category)?.name || pin.category}</span>
                                 </Badge>
                               </div>
                             )}
                           </div>
-                          <CardContent className="p-3 overflow-hidden">
-                            <p className="font-medium text-sm truncate block">{pin.title}</p>
-                            <p className="text-xs text-muted-foreground truncate block">{pin.description}</p>
+                          <CardContent className="p-3">
+                            <p className="font-medium text-sm truncate">{pin.title || 'Без названия'}</p>
+                            <p className="text-xs text-muted-foreground truncate">{pin.description || ''}</p>
                           </CardContent>
                         </Card>
                       ))}
