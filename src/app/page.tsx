@@ -718,7 +718,7 @@ export default function PinterestApp() {
       {/* Main Content */}
       <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col min-w-0">
         <Tabs defaultValue="pins" className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <TabsList className="w-full bg-muted/30 shrink-0 flex gap-2 p-2 rounded-2xl h-[72px]">
+          <TabsList className="w-full bg-muted/30 shrink-0 flex gap-2 p-2 rounded-2xl h-[72px] min-w-0">
             <TabsTrigger value="pins" className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2 gap-1 h-full">
               <PinIcon className="w-5 h-5" />
               <span className="text-xs font-medium">Пины</span>
@@ -743,7 +743,7 @@ export default function PinterestApp() {
               <div className="space-y-4 pr-2 pb-4 min-w-0">
                 {/* Boards Section */}
                 <div className="min-w-0">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3 min-w-0">
                     <h3 className="text-base font-semibold flex items-center gap-2">
                       <Layers className="w-5 h-5 text-blue-500" />
                       Мои доски
@@ -760,7 +760,7 @@ export default function PinterestApp() {
                   </div>
 
                   {boards.length === 0 ? (
-                    <Card className="border-dashed border-blue-500/30 bg-blue-500/5 w-full">
+                    <Card className="border-dashed border-blue-500/30 bg-blue-500/5 min-w-0">
                       <CardContent className="p-4 text-center">
                         <p className="text-sm text-muted-foreground mb-2">Нет подключённых досок</p>
                         <p className="text-xs text-muted-foreground/70">
@@ -769,23 +769,23 @@ export default function PinterestApp() {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="space-y-2 w-full">
+                    <div className="space-y-2 min-w-0">
                       {boards.map((board) => (
-                        <Card key={board.id} className="border-blue-500/20 hover:shadow-lg transition-all duration-300 w-full overflow-hidden">
-                          <CardContent className="p-3 overflow-hidden">
-                            <div className="flex items-center gap-3">
+                        <Card key={board.id} className="border-blue-500/20 hover:shadow-lg transition-all duration-300 min-w-0 overflow-hidden">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3 min-w-0">
                               <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
                                 <Layers className="w-5 h-5 text-blue-500" />
                               </div>
-                              <div className="flex-1 min-w-0 overflow-hidden">
-                                <p className="font-medium text-sm truncate w-full">{board.boardName || 'Доска без названия'}</p>
-                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                  <span className="flex items-center gap-1">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{board.boardName || 'Доска без названия'}</p>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                                  <span className="flex items-center gap-1 shrink-0">
                                     <PinIcon className="w-3 h-3" />
                                     {board.totalPins} пинов
                                   </span>
                                   {board.lastSyncAt && (
-                                    <span className="flex items-center gap-1">
+                                    <span className="flex items-center gap-1 shrink-0">
                                       <Clock className="w-3 h-3" />
                                       {new Date(board.lastSyncAt).toLocaleDateString('ru-RU')}
                                     </span>
@@ -876,9 +876,9 @@ export default function PinterestApp() {
                               </div>
                             )}
                           </div>
-                          <CardContent className="p-3 overflow-hidden">
-                            <p className="font-medium text-sm truncate block">{pin.title}</p>
-                            <p className="text-xs text-muted-foreground truncate block">{pin.description}</p>
+                          <CardContent className="p-3 min-w-0">
+                            <p className="font-medium text-sm truncate">{pin.title}</p>
+                            <p className="text-xs text-muted-foreground truncate">{pin.description}</p>
                           </CardContent>
                         </Card>
                       ))}
