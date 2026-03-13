@@ -716,8 +716,8 @@ export default function PinterestApp() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden overflow-x-hidden flex flex-col w-full">
-        <Tabs defaultValue="pins" className="w-full flex-1 flex flex-col overflow-hidden">
+      <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col min-w-0">
+        <Tabs defaultValue="pins" className="flex-1 flex flex-col overflow-hidden min-w-0">
           <TabsList className="w-full bg-muted/30 shrink-0 flex gap-2 p-2 rounded-2xl h-[72px]">
             <TabsTrigger value="pins" className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-white rounded-xl transition-all flex flex-col items-center justify-center py-2 gap-1 h-full">
               <PinIcon className="w-5 h-5" />
@@ -738,11 +738,11 @@ export default function PinterestApp() {
           </TabsList>
 
           {/* Pins Tab */}
-          <TabsContent value="pins" className="mt-4 flex-1 flex flex-col overflow-hidden w-full max-w-full data-[state=inactive]:hidden">
-            <ScrollArea className="flex-1 h-0 w-full max-w-full overflow-x-hidden">
-              <div className="space-y-4 pr-2 pb-4 w-full max-w-full overflow-x-hidden">
+          <TabsContent value="pins" className="mt-4 flex-1 flex flex-col overflow-hidden min-w-0 data-[state=inactive]:hidden">
+            <ScrollArea className="flex-1 h-0 min-w-0">
+              <div className="space-y-4 pr-2 pb-4 min-w-0">
                 {/* Boards Section */}
-                <div className="w-full">
+                <div className="min-w-0">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-semibold flex items-center gap-2">
                       <Layers className="w-5 h-5 text-blue-500" />
@@ -824,7 +824,7 @@ export default function PinterestApp() {
                 </div>
 
                 {/* Pins Section */}
-                <div className="w-full">
+                <div className="min-w-0">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-semibold">Мои пины</h3>
                     <Button
@@ -848,19 +848,18 @@ export default function PinterestApp() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 w-full max-w-full">
+                    <div className="grid grid-cols-2 gap-3 w-full overflow-hidden">
                       {pins.map((pin, index) => (
                         <Card
                           key={pin.id || `pin-${index}`}
-                          className="overflow-hidden cursor-pointer hover:shadow-pink transition-all duration-300 border-pink/10 w-full max-w-full"
+                          className="overflow-hidden cursor-pointer hover:shadow-pink transition-all duration-300 border-pink/10 min-w-0"
                           onClick={() => setSelectedPin(pin)}
                         >
-                          <div className="aspect-square relative w-full overflow-hidden max-w-full">
+                          <div className="aspect-square relative overflow-hidden">
                             <img
                               src={pin.imageUrl}
                               alt={pin.title || 'Pin'}
-                              className="w-full h-full object-cover"
-                              style={{maxWidth: '100%'}}
+                              className="absolute inset-0 w-full h-full object-cover"
                               loading="lazy"
                             />
                             {pin.isCompleted && (
@@ -891,7 +890,7 @@ export default function PinterestApp() {
           </TabsContent>
 
           {/* Tasks Tab */}
-          <TabsContent value="tasks" className="mt-4 flex-1 flex flex-col overflow-hidden w-full max-w-full data-[state=inactive]:hidden">
+          <TabsContent value="tasks" className="mt-4 flex-1 flex flex-col overflow-hidden min-w-0 data-[state=inactive]:hidden">
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="text-lg font-semibold">Мои задачи</h2>
               <Button
@@ -904,8 +903,8 @@ export default function PinterestApp() {
               </Button>
             </div>
 
-            <ScrollArea className="flex-1 h-0 w-full max-w-full overflow-x-hidden">
-              <div className="space-y-3 pr-2 pb-4 w-full max-w-full">
+            <ScrollArea className="flex-1 h-0 min-w-0">
+              <div className="space-y-3 pr-2 pb-4 min-w-0">
                 {tasks.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full gradient-pink flex items-center justify-center">
@@ -1014,9 +1013,9 @@ export default function PinterestApp() {
           </TabsContent>
 
           {/* Progress Tab */}
-          <TabsContent value="progress" className="mt-4 flex-1 flex flex-col overflow-hidden w-full max-w-full data-[state=inactive]:hidden">
-            <ScrollArea className="flex-1 h-0 w-full max-w-full overflow-x-hidden">
-              <div className="space-y-4 px-1 pb-4 w-full max-w-full">
+          <TabsContent value="progress" className="mt-4 flex-1 flex flex-col overflow-hidden min-w-0 data-[state=inactive]:hidden">
+            <ScrollArea className="flex-1 h-0 min-w-0">
+              <div className="space-y-4 px-1 pb-4 min-w-0">
                 {/* Level Header */}
                 <Card className="gradient-full border-0 overflow-hidden">
                   <CardContent className="p-6 text-center">
@@ -1086,9 +1085,9 @@ export default function PinterestApp() {
           </TabsContent>
 
           {/* Premium Tab */}
-          <TabsContent value="premium" className="mt-4 flex-1 flex flex-col overflow-hidden w-full max-w-full data-[state=inactive]:hidden">
-            <ScrollArea className="flex-1 h-0 w-full max-w-full overflow-x-hidden">
-              <div className="space-y-4 pr-2 pb-4 w-full max-w-full">
+          <TabsContent value="premium" className="mt-4 flex-1 flex flex-col overflow-hidden min-w-0 data-[state=inactive]:hidden">
+            <ScrollArea className="flex-1 h-0 min-w-0">
+              <div className="space-y-4 pr-2 pb-4 min-w-0">
                 <Card className="gradient-full border-0 overflow-hidden">
                   <CardContent className="p-6 text-center">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
