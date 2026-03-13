@@ -121,11 +121,6 @@ export default function AdminLoginPage() {
             </button>
           </div>
         </form>
-
-        {/* Default credentials hint */}
-        <p className="text-center text-slate-500 text-sm mt-6">
-          По умолчанию: <span className="text-slate-400">admin</span> / <span className="text-slate-400">admin123</span>
-        </p>
       </div>
     </div>
   )
