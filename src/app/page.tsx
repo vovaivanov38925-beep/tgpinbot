@@ -732,8 +732,8 @@ export default function PinterestApp() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col min-w-0">
-        <Tabs defaultValue="pins" className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <main className="w-full max-w-lg mx-auto px-4 pt-4 flex-1 overflow-hidden flex flex-col">
+        <Tabs defaultValue="pins" className="w-full flex-1 flex flex-col overflow-hidden">
           <TabsList className="w-full bg-muted/30 shrink-0 grid grid-cols-4 gap-2 p-2 rounded-2xl h-[72px]">
             <TabsTrigger value="pins" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-xl transition-colors flex flex-col items-center justify-center py-2 gap-1">
               <PinIcon className="w-5 h-5 shrink-0" />
