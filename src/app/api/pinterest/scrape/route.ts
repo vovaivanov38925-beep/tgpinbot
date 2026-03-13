@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Max lengths for text fields
+const MAX_TITLE_LENGTH = 100;
+const MAX_DESCRIPTION_LENGTH = 200;
+const MAX_BOARD_NAME_LENGTH = 100;
+
+// Truncate text helper
+function truncate(text: string | null, maxLength: number): string | null {
+  if (!text) return null;
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+}
+
 interface ScrapedPin {
   imageUrl: string;
   title: string | null;
@@ -195,7 +206,7 @@ function extractPinsFromHtml(html: string): ScrapedPin[] {
         
         pins.push({
           imageUrl: originalUrl,
-          title,
+          title: truncate(title, MAX_TITLE_LENGTH),
           sourceUrl: null,
           description: null,
         });
@@ -302,9 +313,9 @@ function extractPinsFromPwsData(data: any, boardPinIds: Set<string>): ScrapedPin
           
           pins.push({
             imageUrl,
-            title: obj.title || obj.grid_title || obj.name || null,
+            title: truncate(obj.title || obj.grid_title || obj.name || null, MAX_TITLE_LENGTH),
             sourceUrl: obj.link || (obj.id ? `https://pinterest.com/pin/${obj.id}` : null),
-            description: obj.description || obj.grid_description || obj.text || null,
+            description: truncate(obj.description || obj.grid_description || obj.text || null, MAX_DESCRIPTION_LENGTH),
           });
         }
       }
@@ -316,9 +327,9 @@ function extractPinsFromPwsData(data: any, boardPinIds: Set<string>): ScrapedPin
       if (!pins.find(p => p.imageUrl === imageUrl)) {
         pins.push({
           imageUrl,
-          title: obj.title || obj.name || null,
+          title: truncate(obj.title || obj.name || null, MAX_TITLE_LENGTH),
           sourceUrl: obj.source_url || null,
-          description: obj.description || null,
+          description: truncate(obj.description || null, MAX_DESCRIPTION_LENGTH),
         });
       }
     }
@@ -340,19 +351,21 @@ function extractBoardName(html: string): string | null {
   // Try meta tag
   const ogTitleMatch = html.match(/<meta property="og:title" content="([^"]+)"/);
   if (ogTitleMatch) {
-    return ogTitleMatch[1].replace(' | Pinterest', '').trim();
+    const name = ogTitleMatch[1].replace(' | Pinterest', '').trim();
+    return truncate(name, MAX_BOARD_NAME_LENGTH);
   }
 
   // Try h1 tag
   const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
   if (h1Match) {
-    return h1Match[1].trim();
+    return truncate(h1Match[1].trim(), MAX_BOARD_NAME_LENGTH);
   }
 
   // Try title tag
   const titleMatch = html.match(/<title>([^<]+)<\/title>/);
   if (titleMatch) {
-    return titleMatch[1].split('|')[0].trim();
+    const name = titleMatch[1].split('|')[0].trim();
+    return truncate(name, MAX_BOARD_NAME_LENGTH);
   }
 
   return null;
@@ -375,7 +388,7 @@ async function scrapeWithMicrolink(boardUrl: string): Promise<ScrapeResult> {
           if (img.url && (img.url.includes('pinimg.com') || img.type?.startsWith('image'))) {
             pins.push({
               imageUrl: img.url,
-              title: img.alt || null,
+              title: truncate(img.alt || null, MAX_TITLE_LENGTH),
               sourceUrl: null,
               description: null,
             });
@@ -385,7 +398,7 @@ async function scrapeWithMicrolink(boardUrl: string): Promise<ScrapeResult> {
 
       return {
         success: true,
-        boardName: data.data.title || null,
+        boardName: truncate(data.data.title || null, MAX_BOARD_NAME_LENGTH),
         boardUsername: null,
         pins,
         totalPins: pins.length,
