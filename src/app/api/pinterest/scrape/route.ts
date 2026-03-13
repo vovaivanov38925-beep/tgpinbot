@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // Max lengths for text fields
 const MAX_TITLE_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 200;
-const MAX_BOARD_NAME_LENGTH = 100;
+const MAX_BOARD_NAME_LENGTH = 10;
 
 // Truncate text helper
 function truncate(text: string | null, maxLength: number): string | null {
