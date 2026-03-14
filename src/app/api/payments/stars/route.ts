@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { createSubscription } from '@/lib/subscriptions'
 import { logger } from '@/lib/logger'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!
@@ -16,6 +15,13 @@ const PLAN_DESCRIPTIONS = {
   month: 'Премиум подписка на 30 дней',
   year: 'Премиум подписка на 365 дней (выгода 40%)',
   lifetime: 'Премиум подписка навсегда'
+}
+
+// Базовые цены в Stars (если не настроено в БД)
+const DEFAULT_PRICES: Record<string, number> = {
+  month: 200,
+  year: 1333,
+  lifetime: 3333
 }
 
 /**
@@ -36,37 +42,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
     }
 
-    // Получаем настройки оплаты
-    const settings = await db.paymentSettings.findFirst()
-    if (!settings?.starsEnabled) {
-      return NextResponse.json({ error: 'Оплата через Stars отключена' }, { status: 400 })
+    // Определяем цену
+    let priceStars = DEFAULT_PRICES[plan] || 200
+
+    // Пытаемся получить цену из настроек
+    try {
+      const settings = await db.paymentSettings.findFirst()
+      if (settings) {
+        const settingPrice = plan === 'month'
+          ? settings.starsMonthPrice
+          : plan === 'year'
+            ? settings.starsYearPrice
+            : settings.starsLifetimePrice
+
+        if (settingPrice && settingPrice > 0) {
+          priceStars = settingPrice
+        }
+      }
+    } catch (e) {
+      // Используем дефолтную цену
     }
 
-    // Получаем цену в звёздах
-    const priceStars = plan === 'month'
-      ? settings.starsMonthPrice
-      : plan === 'year'
-        ? settings.starsYearPrice
-        : settings.starsLifetimePrice
+    // Формируем payload для идентификации платежа
+    const timestamp = Date.now()
+    const payload = `stars_${userId}_${plan}_${timestamp}`
 
-    if (!priceStars || priceStars < 1) {
-      return NextResponse.json({ error: 'Цена не настроена' }, { status: 400 })
-    }
-
-    // Создаём транзакцию для отслеживания
+    // Создаём транзакцию для отслеживания (используем существующие поля)
     const transaction = await db.paymentTransaction.create({
       data: {
         userId,
         amount: priceStars,
-        currency: 'XTR', // Telegram Stars currency code
+        currency: 'XTR',
         status: 'pending',
         provider: 'telegram_stars',
-        planType: plan
+        planType: plan,
+        metadata: JSON.stringify({ payload, plan, createdAt: timestamp })
       }
     })
 
-    // Формируем payload для идентификации платежа
-    const payload = `sub_${transaction.id}_${userId}_${plan}_${Date.now()}`
+    // Обновляем payload с ID транзакции
+    const finalPayload = `stars_${transaction.id}_${userId}_${plan}_${timestamp}`
 
     // Создаём invoice link через Telegram Bot API
     const invoiceResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
@@ -75,15 +90,10 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         title: PLAN_TITLES[plan],
         description: PLAN_DESCRIPTIONS[plan],
-        payload: payload,
+        payload: finalPayload,
         provider_token: '', // Пустая строка для Stars
         currency: 'XTR',
-        prices: [{ label: PLAN_TITLES[plan], amount: priceStars }],
-        need_name: false,
-        need_phone_number: false,
-        need_email: false,
-        need_shipping_address: false,
-        is_flexible: false
+        prices: [{ label: PLAN_TITLES[plan], amount: priceStars }]
       })
     })
 
@@ -93,20 +103,27 @@ export async function POST(request: NextRequest) {
       console.error('Telegram invoice error:', invoiceData)
       await db.paymentTransaction.update({
         where: { id: transaction.id },
-        data: { status: 'failed', metadata: JSON.stringify({ error: invoiceData.description }) }
+        data: {
+          status: 'failed',
+          metadata: JSON.stringify({ error: invoiceData.description, payload: finalPayload })
+        }
       })
       return NextResponse.json({
-        error: 'Ошибка создания счёта',
+        error: 'Ошибка создания счёта в Telegram',
         details: invoiceData.description
       }, { status: 500 })
     }
 
-    // Сохраняем payload в транзакции
+    // Сохраняем invoice link в транзакции
     await db.paymentTransaction.update({
       where: { id: transaction.id },
       data: {
-        providerTxId: payload,
-        metadata: JSON.stringify({ invoiceLink: invoiceData.result, payload })
+        providerTxId: finalPayload,
+        metadata: JSON.stringify({
+          invoiceLink: invoiceData.result,
+          payload: finalPayload,
+          plan
+        })
       }
     })
 
@@ -114,8 +131,7 @@ export async function POST(request: NextRequest) {
       transactionId: transaction.id,
       userId,
       plan,
-      priceStars,
-      payload
+      priceStars
     })
 
     return NextResponse.json({
@@ -151,9 +167,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Транзакция не найдена' }, { status: 404 })
     }
 
+    const metadata = transaction.metadata ? JSON.parse(transaction.metadata) : {}
+
     return NextResponse.json({
       status: transaction.status,
-      plan: transaction.planType,
+      plan: metadata.plan || transaction.planType,
+      amount: transaction.amount,
       createdAt: transaction.createdAt
     })
   } catch (error) {

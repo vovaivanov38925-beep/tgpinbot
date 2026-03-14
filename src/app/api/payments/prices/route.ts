@@ -1,15 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// Актуальные курсы (будут обновляться)
-const DEFAULT_STAR_RATE = 1.5  // 1 Star = 1.5 RUB (примерно $0.015 при курсе 100)
-const DEFAULT_TON_RATE = 280   // 1 TON = 280 RUB
+// Актуальные курсы
+const DEFAULT_STAR_RATE = 1.5  // 1 Star ≈ 1.5 RUB
+const DEFAULT_TON_RATE = 280   // 1 TON ≈ 280 RUB
 
 // Базовые цены в рублях
-const BASE_PRICES = {
+const BASE_PRICES_RUB = {
   month: 299,
   year: 1999,
   lifetime: 4999
+}
+
+// Базовые цены в Stars (Telegram задаёт курс)
+const BASE_PRICES_STARS = {
+  month: 200,
+  year: 1333,
+  lifetime: 3333
+}
+
+// Базовые цены в TON
+const BASE_PRICES_TON = {
+  month: 1.1,
+  year: 7.2,
+  lifetime: 18
 }
 
 /**
@@ -17,38 +31,37 @@ const BASE_PRICES = {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Получаем настройки оплаты
-    let settings = await db.paymentSettings.findFirst()
-
-    if (!settings) {
-      settings = await db.paymentSettings.create({
-        data: {}
-      })
+    // Пытаемся получить настройки оплаты
+    let settings: any = null
+    try {
+      settings = await db.paymentSettings.findFirst()
+    } catch (e) {
+      console.log('PaymentSettings table not available, using defaults')
     }
 
-    // Получаем актуальные курсы
-    const starRate = settings.starToRubRate || DEFAULT_STAR_RATE
-    const tonRate = settings.tonToRubRate || DEFAULT_TON_RATE
+    // Курсы валют
+    const starRate = settings?.starToRubRate || DEFAULT_STAR_RATE
+    const tonRate = settings?.tonToRubRate || DEFAULT_TON_RATE
 
-    // Рассчитываем цены в Stars
+    // Цены в Stars (из настроек или дефолтные)
     const starsPrices = {
-      month: Math.round(BASE_PRICES.month / starRate),
-      year: Math.round(BASE_PRICES.year / starRate),
-      lifetime: Math.round(BASE_PRICES.lifetime / starRate)
+      month: settings?.starsMonthPrice || BASE_PRICES_STARS.month,
+      year: settings?.starsYearPrice || BASE_PRICES_STARS.year,
+      lifetime: settings?.starsLifetimePrice || BASE_PRICES_STARS.lifetime
     }
 
-    // Рассчитываем цены в TON
+    // Цены в TON
     const tonPrices = {
-      month: Math.round((BASE_PRICES.month / tonRate) * 10) / 10,
-      year: Math.round((BASE_PRICES.year / tonRate) * 10) / 10,
-      lifetime: Math.round((BASE_PRICES.lifetime / tonRate) * 10) / 10
+      month: settings?.tonMonthPrice || BASE_PRICES_TON.month,
+      year: settings?.tonYearPrice || BASE_PRICES_TON.year,
+      lifetime: settings?.tonLifetimePrice || BASE_PRICES_TON.lifetime
     }
 
-    // Цены в рублях (для YooKassa)
+    // Цены в рублях
     const rubPrices = {
-      month: BASE_PRICES.month,
-      year: BASE_PRICES.year,
-      lifetime: BASE_PRICES.lifetime
+      month: settings?.yookassaMonthPrice ? Math.round(settings.yookassaMonthPrice / 100) : BASE_PRICES_RUB.month,
+      year: settings?.yookassaYearPrice ? Math.round(settings.yookassaYearPrice / 100) : BASE_PRICES_RUB.year,
+      lifetime: settings?.yookassaLifetimePrice ? Math.round(settings.yookassaLifetimePrice / 100) : BASE_PRICES_RUB.lifetime
     }
 
     return NextResponse.json({
@@ -60,23 +73,41 @@ export async function GET(request: NextRequest) {
       rates: {
         starToRub: starRate,
         tonToRub: tonRate,
-        updatedAt: settings.ratesUpdatedAt
+        updatedAt: settings?.ratesUpdatedAt || null
       },
       enabled: {
-        stars: settings.starsEnabled,
-        ton: settings.tonEnabled,
-        yookassa: settings.yookassaEnabled
+        stars: settings?.starsEnabled ?? true, // По умолчанию включено
+        ton: settings?.tonEnabled ?? false,
+        yookassa: settings?.yookassaEnabled ?? false
       },
-      tonWallet: settings.tonWalletAddress
+      tonWallet: settings?.tonWalletAddress || null
     })
   } catch (error) {
     console.error('Error getting prices:', error)
-    return NextResponse.json({ error: 'Ошибка получения цен' }, { status: 500 })
+    // Возвращаем дефолтные цены при любой ошибке
+    return NextResponse.json({
+      prices: {
+        stars: BASE_PRICES_STARS,
+        ton: BASE_PRICES_TON,
+        rub: BASE_PRICES_RUB
+      },
+      rates: {
+        starToRub: DEFAULT_STAR_RATE,
+        tonToRub: DEFAULT_TON_RATE,
+        updatedAt: null
+      },
+      enabled: {
+        stars: true,
+        ton: false,
+        yookassa: false
+      },
+      tonWallet: null
+    })
   }
 }
 
 /**
- * Обновить курсы валют (вызывается кроном или вручную)
+ * Обновить курсы валют
  */
 export async function POST(request: NextRequest) {
   try {

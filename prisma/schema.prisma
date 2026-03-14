@@ -217,13 +217,13 @@ model PaymentTransaction {
   amount          Int
   currency        String   @default("RUB")
   status          String   @default("pending") // pending, completed, failed, refunded
-  provider        String   // yookassa, telegram_stars
+  provider        String   @default("yookassa") // yookassa, telegram_stars, ton, manual
   providerTxId    String?  @unique // Transaction ID from provider
-  planType        String   // month, year, lifetime
+  planType        String   @default("month") // month, year, lifetime
   metadata        String?  // JSON
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   @@index([userId])
   @@index([status])
   @@index([createdAt])
