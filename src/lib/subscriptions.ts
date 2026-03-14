@@ -5,6 +5,13 @@
 
 import { db } from './db'
 
+// Генерация cuid-подобного ID
+function generateId(): string {
+  const timestamp = Date.now().toString(36)
+  const randomPart = Math.random().toString(36).substring(2, 10)
+  return `c${timestamp}${randomPart}`
+}
+
 // Типы планов подписки
 export type PlanType = 'month' | 'year' | 'lifetime'
 
@@ -79,6 +86,7 @@ export async function createSubscription(params: {
 
   const subscription = await db.subscription.create({
     data: {
+      id: generateId(),  // Генерируем ID вручную
       userId,
       plan,
       status: 'active',
@@ -187,6 +195,7 @@ export async function renewSubscription(params: {
 
   const subscription = await db.subscription.create({
     data: {
+      id: generateId(),  // Генерируем ID вручную
       userId,
       plan,
       status: 'active',
