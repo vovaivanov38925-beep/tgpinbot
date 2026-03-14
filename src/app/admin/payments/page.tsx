@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Save, CreditCard, Star, Check, Diamond, RefreshCw } from 'lucide-react'
+import { Save, CreditCard, Star, Check, Diamond, RefreshCw, Database } from 'lucide-react'
 
 interface PaymentSettings {
   id: string
@@ -33,6 +33,8 @@ export default function AdminPaymentsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [updatingRates, setUpdatingRates] = useState(false)
+  const [migrating, setMigrating] = useState(false)
+  const [migrationResult, setMigrationResult] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/payments')
@@ -43,6 +45,29 @@ export default function AdminPaymentsPage() {
       })
       .catch(() => setLoading(false))
   }, [])
+
+  // Миграция БД
+  const handleMigrate = async () => {
+    setMigrating(true)
+    setMigrationResult(null)
+    try {
+      const res = await fetch('/api/admin/migrate-payments', {
+        method: 'POST'
+      })
+      const data = await res.json()
+      if (data.success) {
+        setMigrationResult('✅ БД обновлена!')
+        const settingsRes = await fetch('/api/admin/payments')
+        const settingsData = await settingsRes.json()
+        setSettings(settingsData.settings)
+      } else {
+        setMigrationResult('❌ ' + (data.error || 'Ошибка'))
+      }
+    } catch (e) {
+      setMigrationResult('❌ Ошибка соединения')
+    }
+    setMigrating(false)
+  }
 
   const handleSave = async () => {
     if (!settings) return
@@ -65,13 +90,12 @@ export default function AdminPaymentsPage() {
   const handleUpdateRates = async () => {
     setUpdatingRates(true)
     try {
-      // Примерные актуальные курсы
       const res = await fetch('/api/payments/prices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          starToRub: 1.5,  // ~$0.015 за star
-          tonToRub: 280    // примерный курс TON
+          starToRub: 1.5,
+          tonToRub: 280
         })
       })
       const data = await res.json()
@@ -113,30 +137,49 @@ export default function AdminPaymentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Настройки оплаты</h1>
           <p className="text-slate-400 mt-1">Конфигурация платёжных систем</p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-violet-600 text-white rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
-        >
-          {saving ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : saved ? (
-            <>
-              <Check className="w-4 h-4" />
-              Сохранено
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              Сохранить
-            </>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Кнопка миграции БД */}
+          <button
+            onClick={handleMigrate}
+            disabled={migrating}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg font-medium hover:bg-emerald-500/30 transition-colors disabled:opacity-50"
+          >
+            {migrating ? (
+              <div className="w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+            ) : (
+              <Database className="w-4 h-4" />
+            )}
+            Обновить БД
+          </button>
+          {migrationResult && (
+            <span className="text-sm text-white">{migrationResult}</span>
           )}
-        </button>
+          {/* Кнопка сохранить */}
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-violet-600 text-white rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : saved ? (
+              <>
+                <Check className="w-4 h-4" />
+                Сохранено
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Сохранить
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Exchange Rates */}
@@ -218,7 +261,7 @@ export default function AdminPaymentsPage() {
             <label className="block text-sm text-slate-400 mb-2">Месяц (Stars)</label>
             <input
               type="number"
-              value={settings.starsMonthPrice}
+              value={settings.starsMonthPrice || 200}
               onChange={(e) => updateSetting('starsMonthPrice', parseInt(e.target.value) || 0)}
               disabled={!settings.starsEnabled}
               className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
@@ -229,7 +272,7 @@ export default function AdminPaymentsPage() {
             <label className="block text-sm text-slate-400 mb-2">Год (Stars)</label>
             <input
               type="number"
-              value={settings.starsYearPrice}
+              value={settings.starsYearPrice || 1333}
               onChange={(e) => updateSetting('starsYearPrice', parseInt(e.target.value) || 0)}
               disabled={!settings.starsEnabled}
               className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
@@ -240,7 +283,7 @@ export default function AdminPaymentsPage() {
             <label className="block text-sm text-slate-400 mb-2">Навсегда (Stars)</label>
             <input
               type="number"
-              value={settings.starsLifetimePrice}
+              value={settings.starsLifetimePrice || 3333}
               onChange={(e) => updateSetting('starsLifetimePrice', parseInt(e.target.value) || 0)}
               disabled={!settings.starsEnabled}
               className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
@@ -287,7 +330,6 @@ export default function AdminPaymentsPage() {
               placeholder="EQ..."
               className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 disabled:opacity-50 font-mono text-sm"
             />
-            <p className="text-xs text-slate-500 mt-1">Адрес кошелька для приёма TON</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -296,7 +338,7 @@ export default function AdminPaymentsPage() {
               <input
                 type="number"
                 step="0.1"
-                value={settings.tonMonthPrice}
+                value={settings.tonMonthPrice || 1.1}
                 onChange={(e) => updateSetting('tonMonthPrice', parseFloat(e.target.value) || 0)}
                 disabled={!settings.tonEnabled}
                 className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
@@ -308,7 +350,7 @@ export default function AdminPaymentsPage() {
               <input
                 type="number"
                 step="0.1"
-                value={settings.tonYearPrice}
+                value={settings.tonYearPrice || 7.2}
                 onChange={(e) => updateSetting('tonYearPrice', parseFloat(e.target.value) || 0)}
                 disabled={!settings.tonEnabled}
                 className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
@@ -320,7 +362,7 @@ export default function AdminPaymentsPage() {
               <input
                 type="number"
                 step="0.1"
-                value={settings.tonLifetimePrice}
+                value={settings.tonLifetimePrice || 18}
                 onChange={(e) => updateSetting('tonLifetimePrice', parseFloat(e.target.value) || 0)}
                 disabled={!settings.tonEnabled}
                 className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
@@ -339,7 +381,7 @@ export default function AdminPaymentsPage() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">YooKassa</h2>
-            <p className="text-sm text-slate-400">Платёжная система (карты, СБП)</p>
+            <p className="text-sm text-slate-400">Платёжная система</p>
           </div>
           <label className="ml-auto flex items-center gap-2 cursor-pointer">
             <span className="text-sm text-slate-400">Включить</span>
@@ -388,7 +430,7 @@ export default function AdminPaymentsPage() {
               <label className="block text-sm text-slate-400 mb-2">Месяц (копейки)</label>
               <input
                 type="number"
-                value={settings.yookassaMonthPrice}
+                value={settings.yookassaMonthPrice || 29900}
                 onChange={(e) => updateSetting('yookassaMonthPrice', parseInt(e.target.value) || 0)}
                 disabled={!settings.yookassaEnabled}
                 className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
@@ -399,7 +441,7 @@ export default function AdminPaymentsPage() {
               <label className="block text-sm text-slate-400 mb-2">Год (копейки)</label>
               <input
                 type="number"
-                value={settings.yookassaYearPrice}
+                value={settings.yookassaYearPrice || 199900}
                 onChange={(e) => updateSetting('yookassaYearPrice', parseInt(e.target.value) || 0)}
                 disabled={!settings.yookassaEnabled}
                 className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
@@ -410,7 +452,7 @@ export default function AdminPaymentsPage() {
               <label className="block text-sm text-slate-400 mb-2">Навсегда (копейки)</label>
               <input
                 type="number"
-                value={settings.yookassaLifetimePrice}
+                value={settings.yookassaLifetimePrice || 499900}
                 onChange={(e) => updateSetting('yookassaLifetimePrice', parseInt(e.target.value) || 0)}
                 disabled={!settings.yookassaEnabled}
                 className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
@@ -428,7 +470,7 @@ export default function AdminPaymentsPage() {
           <div>
             <label className="block text-sm text-slate-400 mb-2">Валюта</label>
             <select
-              value={settings.currency}
+              value={settings.currency || 'RUB'}
               onChange={(e) => updateSetting('currency', e.target.value)}
               className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white"
             >
@@ -441,7 +483,7 @@ export default function AdminPaymentsPage() {
             <label className="block text-sm text-slate-400 mb-2">Пробный период (дней)</label>
             <input
               type="number"
-              value={settings.trialDays}
+              value={settings.trialDays || 7}
               onChange={(e) => updateSetting('trialDays', parseInt(e.target.value) || 0)}
               className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white"
             />
