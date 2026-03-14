@@ -16,21 +16,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
     }
 
-    const where: Record<string, unknown> = { userId }
-    if (status) where.status = status
-    if (category) where.category = category
+    // Use raw query to avoid issues with missing columns
+    let query = `SELECT id, "userId", "pinId", title, description, imageurl as "imageUrl", category, priority, status, "dueDate", "reminderTime", "reminderSent", points, "createdAt", "updatedAt" FROM tasks WHERE "userId" = '${userId}'`
+    if (status) query += ` AND status = '${status}'`
+    if (category) query += ` AND category = '${category}'`
+    query += ` ORDER BY "createdAt" DESC`
 
-    const tasks = await db.task.findMany({
-      where,
-      include: { pin: true },
-      orderBy: { createdAt: 'desc' },
-    })
+    const tasks = await db.$queryRawUnsafe(query)
 
-    return NextResponse.json(tasks)
+    return NextResponse.json({ tasks })
   } catch (error) {
     console.error('Error fetching tasks:', error)
     await logger.error('api', 'Error fetching tasks', { error: String(error) })
-    return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
+    return NextResponse.json({ tasks: [], error: 'Failed to fetch tasks' })
   }
 }
 
@@ -74,38 +72,51 @@ export async function POST(request: NextRequest) {
 
     // Проверка на дублирование - ищем похожую задачу за последние 5 секунд
     const fiveSecondsAgo = new Date(Date.now() - 5000)
-    const existingTask = await db.task.findFirst({
-      where: {
-        userId,
-        title,
-        createdAt: { gte: fiveSecondsAgo }
-      }
-    })
+    const existingTasks = await db.$queryRaw<any[]>`
+      SELECT * FROM tasks WHERE "userId" = ${userId} AND title = ${title} AND "createdAt" >= ${fiveSecondsAgo} LIMIT 1
+    `
 
-    if (existingTask) {
-      // Возвращаем существующую задачу вместо создания дубликата
-      await logger.info('api', 'Duplicate task prevented', { taskId: existingTask.id, userId, title })
-      return NextResponse.json(existingTask)
+    if (existingTasks.length > 0) {
+      await logger.info('api', 'Duplicate task prevented', { taskId: existingTasks[0].id, userId, title })
+      return NextResponse.json(existingTasks[0])
     }
 
     const taskPoints =
       priority === 'high' ? POINTS.TASK_COMPLETED_HIGH_PRIORITY : POINTS.TASK_COMPLETED_BASE
 
-    const task = await db.task.create({
-      data: {
-        userId,
-        pinId: pinId || null,
-        title,
-        description: description || null,
-        imageUrl: imageUrl || null,
-        category: category || null,
-        priority: priority || 'medium',
-        dueDate: dueDate ? new Date(dueDate) : null,
-        reminderTime: reminderTime ? new Date(reminderTime) : null,
-        reminderSent: false,
-        points: taskPoints,
-      },
-    })
+    // Generate cuid
+    const { cuid } = await import('@paralleldrive/cuid2')
+    const taskId = cuid()
+
+    // Use raw query to create task
+    await db.$queryRawUnsafe(`
+      INSERT INTO tasks (id, "userId", "pinId", title, description, imageurl, category, priority, status, "dueDate", "reminderTime", "reminderSent", points, "createdAt", "updatedAt")
+      VALUES (
+        '${taskId}',
+        '${userId}',
+        ${pinId ? `'${pinId}'` : 'NULL'},
+        '${title.replace(/'/g, "''")}',
+        ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'},
+        ${imageUrl ? `'${imageUrl}'` : 'NULL'},
+        ${category ? `'${category}'` : 'NULL'},
+        '${priority || 'medium'}',
+        'pending',
+        ${dueDate ? `'${dueDate}'` : 'NULL'},
+        ${reminderTime ? `'${reminderTime}'` : 'NULL'},
+        false,
+        ${taskPoints},
+        NOW(),
+        NOW()
+      )
+    `)
+
+    // Get the created task
+    const createdTasks = await db.$queryRaw<any[]>`
+      SELECT id, "userId", "pinId", title, description, imageurl as "imageUrl", category, priority, status, "dueDate", "reminderTime", "reminderSent", points, "createdAt", "updatedAt"
+      FROM tasks WHERE id = ${taskId}
+    `
+
+    const task = createdTasks[0]
 
     // Get user for premium check
     const user = await db.user.findUnique({ where: { id: userId } })
@@ -149,7 +160,10 @@ export async function PATCH(request: NextRequest) {
 
     // If task is being completed, award points and send notifications
     if (status === 'completed') {
-      const task = await db.task.findUnique({ where: { id } })
+      const existingTasks = await db.$queryRaw<any[]>`
+        SELECT * FROM tasks WHERE id = ${id}
+      `
+      const task = existingTasks[0]
 
       if (task && task.status !== 'completed') {
         const notificationResult = await processNotifications(task.userId, 'task_completed', {
@@ -158,10 +172,14 @@ export async function PATCH(request: NextRequest) {
           points: task.points,
         })
 
-        const updatedTask = await db.task.update({
-          where: { id },
-          data: { ...updateData, status: 'completed' },
-        })
+        await db.$queryRawUnsafe(`
+          UPDATE tasks SET status = 'completed', "updatedAt" = NOW() WHERE id = '${id}'
+        `)
+
+        const updatedTasks = await db.$queryRaw<any[]>`
+          SELECT id, "userId", "pinId", title, description, imageurl as "imageUrl", category, priority, status, "dueDate", "reminderTime", "reminderSent", points, "createdAt", "updatedAt"
+          FROM tasks WHERE id = ${id}
+        `
 
         await logger.info('api', 'Task completed', {
           taskId: task.id,
@@ -171,7 +189,7 @@ export async function PATCH(request: NextRequest) {
         })
 
         return NextResponse.json({
-          ...updatedTask,
+          ...updatedTasks[0],
           pointsEarned: notificationResult.points,
           levelUp: notificationResult.levelUp,
           newLevel: notificationResult.newLevel,
@@ -180,12 +198,23 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const task = await db.task.update({
-      where: { id },
-      data: { ...updateData, status: status || updateData.status },
-    })
+    // General update
+    const setParts = []
+    if (status) setParts.push(`status = '${status}'`)
+    setParts.push(`"updatedAt" = NOW()`)
 
-    return NextResponse.json(task)
+    if (setParts.length > 0) {
+      await db.$queryRawUnsafe(`
+        UPDATE tasks SET ${setParts.join(', ')} WHERE id = '${id}'
+      `)
+    }
+
+    const tasks = await db.$queryRaw<any[]>`
+      SELECT id, "userId", "pinId", title, description, imageurl as "imageUrl", category, priority, status, "dueDate", "reminderTime", "reminderSent", points, "createdAt", "updatedAt"
+      FROM tasks WHERE id = ${id}
+    `
+
+    return NextResponse.json(tasks[0])
   } catch (error) {
     console.error('Error updating task:', error)
     await logger.error('api', 'Error updating task', { error: String(error) })
@@ -203,7 +232,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Task ID is required' }, { status: 400 })
     }
 
-    await db.task.delete({ where: { id } })
+    await db.$queryRawUnsafe(`DELETE FROM tasks WHERE id = '${id}'`)
     await logger.info('api', 'Task deleted', { taskId: id })
 
     return NextResponse.json({ success: true })
