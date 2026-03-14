@@ -74,7 +74,7 @@ model Pin {
   description  String?
   category     String?
   sourceUrl    String?
-  boardUrl     String?  // URL доски Pinterest с которой пришел пин
+  boardUrl     String?  @map("boardurl") // URL доски Pinterest с которой пришел пин
   isCompleted  Boolean  @default(false)
   points       Int      @default(10)
   createdAt    DateTime @default(now())
@@ -263,17 +263,17 @@ model BotLog {
 // Pinterest Board Sync
 model PinterestBoard {
   id              String   @id @default(cuid())
-  userId          String
-  boardUrl        String   // URL доски Pinterest
-  boardName       String?  // Название доски
-  boardUsername   String?  // Username владельца доски
-  lastSyncAt      DateTime? // Последняя синхронизация
-  totalPins       Int      @default(0) // Всего пинов при последней синхронизации
-  newPins         Int      @default(0) // Новых пинов при последней синхронизации
-  isActive        Boolean  @default(true) // Активна ли синхронизация
-  autoSync        Boolean  @default(false) // Автоматическая синхронизация
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  userId          String   @map("userid")
+  boardUrl        String   @map("boardurl") // URL доски Pinterest
+  boardName       String?  @map("boardname") // Название доски
+  boardUsername   String?  @map("boardusername") // Username владельца доски
+  lastSyncAt      DateTime? @map("lastsyncat") // Последняя синхронизация
+  totalPins       Int      @default(0) @map("totalpins") // Всего пинов при последней синхронизации
+  newPins         Int      @default(0) @map("newpins") // Новых пинов при последней синхронизации
+  isActive        Boolean  @default(true) @map("isactive") // Активна ли синхронизация
+  autoSync        Boolean  @default(false) @map("autosync") // Автоматическая синхронизация
+  createdAt       DateTime @default(now()) @map("createdat")
+  updatedAt       DateTime @updatedAt @map("updatedat")
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
