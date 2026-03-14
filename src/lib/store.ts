@@ -62,7 +62,6 @@ export interface Task {
   pinId: string | null
   title: string
   description: string | null
-  imageUrl: string | null
   category: string | null
   priority: string
   status: string

@@ -1135,73 +1135,83 @@ export default function PinterestApp() {
                 ) : (
                   <>
                     {tasks.filter(t => t.status !== 'completed').map((task, index) => (
-                      <Card key={task.id || `task-${index}`} className="border-lavender/20 hover:shadow-lavender transition-all duration-300 overflow-hidden">
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            {/* Изображение задачи если есть */}
-                            {task.imageUrl && (
-                              <div className="w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-muted">
-                                <img
-                                  src={task.imageUrl}
-                                  alt={task.title}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none'
-                                  }}
-                                />
-                              </div>
-                            )}
-                            <button
-                              onClick={() => handleToggleTask(task)}
-                              className="mt-1 text-muted-foreground hover:text-primary transition-colors shrink-0"
-                            >
-                              <Circle className="w-5 h-5" />
-                            </button>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium">{task.title}</p>
-                              {task.description && (
-                                <p className="text-sm text-muted-foreground">{task.description}</p>
-                              )}
-                              {task.reminderTime && (
-                                <div className="flex items-center gap-1 mt-1 text-xs text-primary">
-                                  <Bell className="w-3 h-3" />
-                                  <span>
-                                    {new Date(task.reminderTime).toLocaleString('ru-RU', {
-                                      day: 'numeric',
-                                      month: 'short',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      timeZone: 'Europe/Moscow'
-                                    })}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-2 mt-2">
+                      <Card key={task.id || `task-${index}`} className="border-lavender/20 hover:shadow-lg hover:border-lavender/40 transition-all duration-300 overflow-hidden group">
+                        <CardContent className="p-0">
+                          {/* Верхняя часть с градиентом */}
+                          <div className="bg-gradient-to-r from-violet-500/10 to-pink-500/10 px-4 py-3 border-b border-border/30">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
                                 {task.priority === 'high' && (
-                                  <Badge variant="destructive" className="text-xs">Важно</Badge>
+                                  <Badge variant="destructive" className="text-xs gap-1">
+                                    <Zap className="w-3 h-3" />
+                                    Важно
+                                  </Badge>
                                 )}
                                 {task.priority === 'medium' && (
                                   <Badge variant="secondary" className="text-xs">Средний</Badge>
                                 )}
+                                {task.priority === 'low' && (
+                                  <Badge variant="outline" className="text-xs">Низкий</Badge>
+                                )}
                                 {task.category && (
-                                  <Badge variant="outline" className="text-xs">
+                                  <Badge variant="outline" className="text-xs gap-1">
                                     {categoryIcons[task.category]}
-                                    <span className="ml-1">{task.category}</span>
+                                    <span>{categories.find(c => c.id === task.category)?.name || task.category}</span>
                                   </Badge>
                                 )}
-                                <Badge className="bg-lavender/20 text-xs">
-                                  <Zap className="w-3 h-3 mr-1" />
-                                  {task.points}
-                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-1 bg-amber-500/20 px-2 py-1 rounded-full">
+                                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                                <span className="text-xs font-bold text-amber-600">+{task.points} XP</span>
                               </div>
                             </div>
+                          </div>
+
+                          {/* Основное содержимое */}
+                          <div className="p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-base mb-1">{task.title}</p>
+                                {task.description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{task.description}</p>
+                                )}
+                                {task.reminderTime && (
+                                  <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 w-fit px-2 py-1 rounded-full">
+                                    <Bell className="w-3.5 h-3.5" />
+                                    <span>
+                                      {new Date(task.reminderTime).toLocaleString('ru-RU', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        timeZone: 'Europe/Moscow'
+                                      })}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleDeleteTask(task.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Кнопка выполнения */}
+                          <div className="px-4 pb-4">
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-destructive shrink-0"
-                              onClick={() => handleDeleteTask(task.id)}
+                              onClick={() => handleToggleTask(task)}
+                              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white h-11 gap-2 shadow-md hover:shadow-lg transition-all"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <CheckCircle2 className="w-5 h-5" />
+                              <span className="font-semibold">Выполнено</span>
+                              <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                                +{task.points} XP
+                              </span>
                             </Button>
                           </div>
                         </CardContent>
@@ -1210,26 +1220,39 @@ export default function PinterestApp() {
 
                     {tasks.filter(t => t.status === 'completed').length > 0 && (
                       <div key="completed-section">
-                        <div className="flex items-center gap-2 mt-6 mb-2">
-                          <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          <p className="text-sm font-medium text-muted-foreground">Выполнено</p>
+                        <div className="flex items-center gap-2 mt-6 mb-3 px-1">
+                          <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
+                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          </div>
+                          <p className="text-sm font-semibold text-green-600">Выполненные задачи</p>
+                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                            {tasks.filter(t => t.status === 'completed').length} шт
+                          </span>
                         </div>
                         {tasks.filter(t => t.status === 'completed').map((task, index) => (
-                          <Card key={task.id || `completed-${index}`} className="opacity-60 border-green-500/20 mb-3">
+                          <Card key={task.id || `completed-${index}`} className="mb-2 border-green-500/20 bg-green-500/5">
                             <CardContent className="p-4">
-                              <div className="flex items-start gap-3">
-                                <button
-                                  onClick={() => handleToggleTask(task)}
-                                  className="mt-1 text-green-500"
-                                >
-                                  <CheckCircle2 className="w-5 h-5" />
-                                </button>
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium line-through">{task.title}</p>
-                                  <Badge className="bg-green-500/20 text-green-600 text-xs mt-1">
-                                    +{task.points} очков
-                                  </Badge>
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                                  <CheckCircle2 className="w-5 h-5 text-white" />
                                 </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium line-through text-muted-foreground">{task.title}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge className="bg-green-500/20 text-green-600 text-xs gap-1">
+                                      <Zap className="w-3 h-3" />
+                                      +{task.points} XP получено
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-muted-foreground hover:text-primary"
+                                  onClick={() => handleToggleTask(task)}
+                                >
+                                  Вернуть
+                                </Button>
                               </div>
                             </CardContent>
                           </Card>
