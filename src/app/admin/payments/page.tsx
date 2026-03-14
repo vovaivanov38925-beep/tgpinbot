@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Save, CreditCard, Star, Check, Diamond, RefreshCw, Database } from 'lucide-react'
+import { Save, CreditCard, Star, Check, Diamond, RefreshCw } from 'lucide-react'
 
 interface PaymentSettings {
   id: string
@@ -33,8 +33,6 @@ export default function AdminPaymentsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [updatingRates, setUpdatingRates] = useState(false)
-  const [migrating, setMigrating] = useState(false)
-  const [migrationResult, setMigrationResult] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/payments')
@@ -45,29 +43,6 @@ export default function AdminPaymentsPage() {
       })
       .catch(() => setLoading(false))
   }, [])
-
-  // Миграция БД
-  const handleMigrate = async () => {
-    setMigrating(true)
-    setMigrationResult(null)
-    try {
-      const res = await fetch('/api/admin/migrate-payments', {
-        method: 'POST'
-      })
-      const data = await res.json()
-      if (data.success) {
-        setMigrationResult('✅ БД обновлена!')
-        const settingsRes = await fetch('/api/admin/payments')
-        const settingsData = await settingsRes.json()
-        setSettings(settingsData.settings)
-      } else {
-        setMigrationResult('❌ ' + (data.error || 'Ошибка'))
-      }
-    } catch (e) {
-      setMigrationResult('❌ Ошибка соединения')
-    }
-    setMigrating(false)
-  }
 
   const handleSave = async () => {
     if (!settings) return
@@ -143,22 +118,6 @@ export default function AdminPaymentsPage() {
           <p className="text-slate-400 mt-1">Конфигурация платёжных систем</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Кнопка миграции БД */}
-          <button
-            onClick={handleMigrate}
-            disabled={migrating}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg font-medium hover:bg-emerald-500/30 transition-colors disabled:opacity-50"
-          >
-            {migrating ? (
-              <div className="w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
-            ) : (
-              <Database className="w-4 h-4" />
-            )}
-            Обновить БД
-          </button>
-          {migrationResult && (
-            <span className="text-sm text-white">{migrationResult}</span>
-          )}
           {/* Кнопка сохранить */}
           <button
             onClick={handleSave}
