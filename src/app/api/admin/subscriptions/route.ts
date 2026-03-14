@@ -80,7 +80,6 @@ export async function POST(request: NextRequest) {
     console.log('[Admin Subscriptions] Admin:', admin)
     
     if (!admin) {
-      console.log('[Admin Subscriptions] Unauthorized - no admin')
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
@@ -94,7 +93,6 @@ export async function POST(request: NextRequest) {
       console.log('[Admin Subscriptions] Granting subscription:', { userId, plan, reason })
       
       if (!userId || !plan) {
-        console.log('[Admin Subscriptions] Missing userId or plan')
         return NextResponse.json(
           { error: 'userId и plan обязательны' },
           { status: 400 }
@@ -102,20 +100,18 @@ export async function POST(request: NextRequest) {
       }
 
       // Проверяем пользователя
-      const user = await db.user.findUnique({
-        where: { id: userId }
-      })
-      
-      console.log('[Admin Subscriptions] Found user:', user ? user.id : 'NOT FOUND')
+      const users = await db.$queryRaw<any[]>`
+        SELECT id FROM users WHERE id = ${userId}
+      `
 
-      if (!user) {
+      if (!users || users.length === 0) {
         return NextResponse.json(
           { error: 'Пользователь не найден' },
           { status: 404 }
         )
       }
 
-      console.log('[Admin Subscriptions] Calling grantSubscription...')
+      console.log('[Admin Subscriptions] Creating subscription...')
       const subscription = await grantSubscription({
         userId,
         plan,
@@ -134,7 +130,6 @@ export async function POST(request: NextRequest) {
         { userId, plan, reason }
       )
 
-      console.log('[Admin Subscriptions] Success!')
       return NextResponse.json({
         success: true,
         subscription,
@@ -180,7 +175,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[Admin Subscriptions API] Error:', error)
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error.message, stack: error.stack },
       { status: 500 }
     )
   }

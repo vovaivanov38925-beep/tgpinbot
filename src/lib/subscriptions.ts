@@ -1,16 +1,9 @@
 /**
  * Subscription Management System
- * Полноценная система управления подписками
+ * Работает напрямую с БД через Prisma raw queries
  */
 
 import { db } from './db'
-
-// Генерация cuid-подобного ID
-function generateId(): string {
-  const timestamp = Date.now().toString(36)
-  const randomPart = Math.random().toString(36).substring(2, 10)
-  return `c${timestamp}${randomPart}`
-}
 
 // Типы планов подписки
 export type PlanType = 'month' | 'year' | 'lifetime'
@@ -48,11 +41,11 @@ export const PLAN_DURATION: Record<PlanType, number | null> = {
   lifetime: null // Бессрочная
 }
 
-// Цены по умолчанию (в рублях)
-export const DEFAULT_PRICES: Record<PlanType, number> = {
-  month: 299,
-  year: 1999,
-  lifetime: 4999
+// Генерация ID
+function generateId(): string {
+  const timestamp = Date.now().toString(36)
+  const randomPart = Math.random().toString(36).substring(2, 10)
+  return `c${timestamp}${randomPart}`
 }
 
 /**
@@ -72,146 +65,47 @@ export async function createSubscription(params: {
     userId,
     plan,
     provider,
-    amount = DEFAULT_PRICES[plan] * 100, // В копейках
+    amount = 0,
     currency = 'RUB',
-    transactionId,
-    grantedBy,
-    metadata
+    transactionId = null,
+    grantedBy = null,
+    metadata = null
   } = params
 
-  // Вычисляем даты
+  const id = generateId()
   const now = new Date()
   const duration = PLAN_DURATION[plan]
   const expiresAt = duration ? new Date(now.getTime() + duration * 24 * 60 * 60 * 1000) : null
 
-  const subscription = await db.subscription.create({
-    data: {
-      id: generateId(),  // Генерируем ID вручную
-      userId,
-      plan,
-      status: 'active',
-      provider,
-      transactionId,
-      amount,
-      currency,
-      startedAt: now,
-      expiresAt,
-      grantedBy,
-      metadata: metadata ? JSON.stringify(metadata) : null
-    }
-  })
+  await db.$executeRaw`
+    INSERT INTO subscriptions (
+      id, user_id, plan, status, provider, transaction_id,
+      amount, currency, started_at, expires_at, granted_by, metadata
+    ) VALUES (
+      ${id}, ${userId}, ${plan}, ${'active'}, ${provider}, ${transactionId},
+      ${amount}, ${currency}, ${now}, ${expiresAt}, ${grantedBy}, ${metadata ? JSON.stringify(metadata) : null}
+    )
+  `
 
   // Обновляем статус пользователя
   await updateUserPremiumStatus(userId)
 
-  return subscription as SubscriptionData
-}
-
-/**
- * Активировать подписку (после подтверждения оплаты)
- */
-export async function activateSubscription(subscriptionId: string): Promise<SubscriptionData> {
-  const subscription = await db.subscription.findUnique({
-    where: { id: subscriptionId }
-  })
-
-  if (!subscription) {
-    throw new Error('Subscription not found')
+  return {
+    id,
+    userId,
+    plan,
+    status: 'active',
+    provider,
+    transactionId,
+    amount,
+    currency,
+    startedAt: now,
+    expiresAt,
+    grantedBy,
+    metadata: metadata ? JSON.stringify(metadata) : null,
+    createdAt: now,
+    updatedAt: now
   }
-
-  const now = new Date()
-  const plan = subscription.plan as PlanType
-  const duration = PLAN_DURATION[plan]
-  const expiresAt = duration ? new Date(now.getTime() + duration * 24 * 60 * 60 * 1000) : null
-
-  const updated = await db.subscription.update({
-    where: { id: subscriptionId },
-    data: {
-      status: 'active',
-      startedAt: now,
-      expiresAt
-    }
-  })
-
-  // Обновляем статус пользователя
-  await updateUserPremiumStatus(subscription.userId)
-
-  return updated as SubscriptionData
-}
-
-/**
- * Отменить подписку
- */
-export async function cancelSubscription(
-  subscriptionId: string,
-  reason?: string
-): Promise<SubscriptionData> {
-  const subscription = await db.subscription.findUnique({
-    where: { id: subscriptionId }
-  })
-
-  if (!subscription) {
-    throw new Error('Subscription not found')
-  }
-
-  const updated = await db.subscription.update({
-    where: { id: subscriptionId },
-    data: {
-      status: 'cancelled',
-      cancelledAt: new Date(),
-      cancelledReason: reason || 'Cancelled by user'
-    }
-  })
-
-  // Обновляем статус пользователя
-  await updateUserPremiumStatus(subscription.userId)
-
-  return updated as SubscriptionData
-}
-
-/**
- * Продлить подписку
- */
-export async function renewSubscription(params: {
-  userId: string
-  plan: PlanType
-  provider: PaymentProvider
-  amount?: number
-  transactionId?: string
-}): Promise<SubscriptionData> {
-  const { userId, plan, provider, amount, transactionId } = params
-
-  // Получаем активную подписку
-  const activeSubscription = await getActiveSubscription(userId)
-
-  // Если есть активная подписка - продлеваем от её даты истечения
-  let startsFrom = new Date()
-  if (activeSubscription?.expiresAt && new Date(activeSubscription.expiresAt) > startsFrom) {
-    startsFrom = new Date(activeSubscription.expiresAt)
-  }
-
-  const duration = PLAN_DURATION[plan]
-  const expiresAt = duration ? new Date(startsFrom.getTime() + duration * 24 * 60 * 60 * 1000) : null
-
-  const subscription = await db.subscription.create({
-    data: {
-      id: generateId(),  // Генерируем ID вручную
-      userId,
-      plan,
-      status: 'active',
-      provider,
-      transactionId,
-      amount: amount || DEFAULT_PRICES[plan] * 100,
-      currency: 'RUB',
-      startedAt: startsFrom,
-      expiresAt
-    }
-  })
-
-  // Обновляем статус пользователя
-  await updateUserPremiumStatus(userId)
-
-  return subscription as SubscriptionData
 }
 
 /**
@@ -220,41 +114,31 @@ export async function renewSubscription(params: {
 export async function getActiveSubscription(userId: string): Promise<SubscriptionData | null> {
   const now = new Date()
 
-  const subscription = await db.subscription.findFirst({
-    where: {
-      userId,
-      status: 'active',
-      OR: [
-        { expiresAt: null }, // lifetime
-        { expiresAt: { gt: now } } // ещё не истекла
-      ]
-    },
-    orderBy: {
-      createdAt: 'desc'
-    }
-  })
+  const results = await db.$queryRaw<any[]>`
+    SELECT * FROM subscriptions
+    WHERE user_id = ${userId}
+      AND status = ${'active'}
+      AND (expires_at IS NULL OR expires_at > ${now})
+    ORDER BY created_at DESC
+    LIMIT 1
+  `
 
-  return subscription as SubscriptionData | null
+  if (!results || results.length === 0) return null
+
+  return mapRowToSubscription(results[0])
 }
 
 /**
  * Получить все подписки пользователя
  */
 export async function getUserSubscriptions(userId: string): Promise<SubscriptionData[]> {
-  const subscriptions = await db.subscription.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' }
-  })
+  const results = await db.$queryRaw<any[]>`
+    SELECT * FROM subscriptions
+    WHERE user_id = ${userId}
+    ORDER BY created_at DESC
+  `
 
-  return subscriptions as SubscriptionData[]
-}
-
-/**
- * Проверить есть ли активная подписка
- */
-export async function hasActiveSubscription(userId: string): Promise<boolean> {
-  const subscription = await getActiveSubscription(userId)
-  return subscription !== null
+  return results.map(mapRowToSubscription)
 }
 
 /**
@@ -263,181 +147,13 @@ export async function hasActiveSubscription(userId: string): Promise<boolean> {
 export async function updateUserPremiumStatus(userId: string): Promise<void> {
   const activeSubscription = await getActiveSubscription(userId)
 
-  await db.user.update({
-    where: { id: userId },
-    data: {
-      isPremium: !!activeSubscription,
-      premiumExpiry: activeSubscription?.expiresAt || null
-    }
-  })
-}
-
-/**
- * Проверить истекшие подписки и обновить их статус
- */
-export async function checkExpiredSubscriptions(): Promise<number> {
-  const now = new Date()
-
-  // Находим все активные подписки с истёкшим сроком
-  const expiredSubscriptions = await db.subscription.findMany({
-    where: {
-      status: 'active',
-      expiresAt: { lt: now, not: null }
-    }
-  })
-
-  // Обновляем статус
-  for (const sub of expiredSubscriptions) {
-    await db.subscription.update({
-      where: { id: sub.id },
-      data: { status: 'expired' }
-    })
-
-    // Обновляем статус пользователя
-    await updateUserPremiumStatus(sub.userId)
-  }
-
-  return expiredSubscriptions.length
-}
-
-/**
- * Получить статистику подписок
- */
-export async function getSubscriptionsStats(): Promise<{
-  total: number
-  active: number
-  expired: number
-  cancelled: number
-  byPlan: Record<PlanType, number>
-  byProvider: Record<PaymentProvider, number>
-  revenue: {
-    total: number
-    thisMonth: number
-    thisYear: number
-  }
-}> {
-  const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const startOfYear = new Date(now.getFullYear(), 0, 1)
-
-  const [total, active, expired, cancelled, allSubscriptions] = await Promise.all([
-    db.subscription.count(),
-    db.subscription.count({ where: { status: 'active' } }),
-    db.subscription.count({ where: { status: 'expired' } }),
-    db.subscription.count({ where: { status: 'cancelled' } }),
-    db.subscription.findMany({
-      select: { plan: true, provider: true, amount: true, currency: true, createdAt: true }
-    })
-  ])
-
-  // Подсчёт по планам
-  const byPlan: Record<PlanType, number> = { month: 0, year: 0, lifetime: 0 }
-  const byProvider: Record<PaymentProvider, number> = { yookassa: 0, telegram_stars: 0, manual: 0 }
-
-  let totalRevenue = 0
-  let monthRevenue = 0
-  let yearRevenue = 0
-
-  for (const sub of allSubscriptions) {
-    // По планам
-    if (sub.plan in byPlan) {
-      byPlan[sub.plan as PlanType]++
-    }
-
-    // По провайдерам
-    if (sub.provider in byProvider) {
-      byProvider[sub.provider as PaymentProvider]++
-    }
-
-    // Выручка (только активные и завершённые, не manual)
-    if (sub.provider !== 'manual' && sub.amount) {
-      totalRevenue += sub.amount
-      const created = new Date(sub.createdAt)
-      if (created >= startOfMonth) {
-        monthRevenue += sub.amount
-      }
-      if (created >= startOfYear) {
-        yearRevenue += sub.amount
-      }
-    }
-  }
-
-  return {
-    total,
-    active,
-    expired,
-    cancelled,
-    byPlan,
-    byProvider,
-    revenue: {
-      total: Math.round(totalRevenue / 100), // В рублях
-      thisMonth: Math.round(monthRevenue / 100),
-      thisYear: Math.round(yearRevenue / 100)
-    }
-  }
-}
-
-/**
- * Получить подписки с пагинацией (для админки)
- */
-export async function getSubscriptionsPaginated(params: {
-  page?: number
-  limit?: number
-  status?: SubscriptionStatus
-  plan?: PlanType
-  provider?: PaymentProvider
-  search?: string
-}): Promise<{
-  subscriptions: any[]
-  total: number
-  page: number
-  totalPages: number
-}> {
-  const { page = 1, limit = 20, status, plan, provider, search } = params
-
-  const where: any = {}
-
-  if (status) where.status = status
-  if (plan) where.plan = plan
-  if (provider) where.provider = provider
-
-  if (search) {
-    where.OR = [
-      { user: { telegramId: { contains: search, mode: 'insensitive' } } },
-      { user: { username: { contains: search, mode: 'insensitive' } } },
-      { user: { firstName: { contains: search, mode: 'insensitive' } } }
-    ]
-  }
-
-  const [subscriptions, total] = await Promise.all([
-    db.subscription.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            id: true,
-            telegramId: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            photoUrl: true,
-            isPremium: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit
-    }),
-    db.subscription.count({ where })
-  ])
-
-  return {
-    subscriptions,
-    total,
-    page,
-    totalPages: Math.ceil(total / limit)
-  }
+  await db.$executeRaw`
+    UPDATE users
+    SET "isPremium" = ${!!activeSubscription},
+        "premiumExpiry" = ${activeSubscription?.expiresAt || null},
+        "updatedAt" = ${new Date()}
+    WHERE id = ${userId}
+  `
 }
 
 /**
@@ -470,26 +186,239 @@ export async function revokeSubscription(params: {
   reason?: string
 }): Promise<SubscriptionData> {
   const { subscriptionId, adminId, reason } = params
+  const now = new Date()
 
-  const subscription = await db.subscription.findUnique({
-    where: { id: subscriptionId }
-  })
+  // Получаем подписку
+  const results = await db.$queryRaw<any[]>`
+    SELECT * FROM subscriptions WHERE id = ${subscriptionId}
+  `
 
-  if (!subscription) {
+  if (!results || results.length === 0) {
     throw new Error('Subscription not found')
   }
 
-  const updated = await db.subscription.update({
-    where: { id: subscriptionId },
-    data: {
-      status: 'cancelled',
-      cancelledAt: new Date(),
-      cancelledReason: reason || `Revoked by admin ${adminId}`
-    }
-  })
+  const subscription = results[0]
+
+  // Обновляем статус
+  await db.$executeRaw`
+    UPDATE subscriptions
+    SET status = ${'cancelled'},
+        cancelled_at = ${now},
+        cancelled_reason = ${reason || `Revoked by admin ${adminId}`},
+        updated_at = ${now}
+    WHERE id = ${subscriptionId}
+  `
 
   // Обновляем статус пользователя
-  await updateUserPremiumStatus(subscription.userId)
+  await updateUserPremiumStatus(subscription.user_id)
 
-  return updated as SubscriptionData
+  return mapRowToSubscription({
+    ...subscription,
+    status: 'cancelled',
+    cancelled_at: now,
+    cancelled_reason: reason || `Revoked by admin ${adminId}`
+  })
+}
+
+/**
+ * Проверить истекшие подписки
+ */
+export async function checkExpiredSubscriptions(): Promise<number> {
+  const now = new Date()
+
+  // Находим истекшие
+  const expired = await db.$queryRaw<any[]>`
+    SELECT id, user_id FROM subscriptions
+    WHERE status = ${'active'}
+      AND expires_at IS NOT NULL
+      AND expires_at < ${now}
+  `
+
+  // Обновляем каждую
+  for (const sub of expired) {
+    await db.$executeRaw`
+      UPDATE subscriptions
+      SET status = ${'expired'}, updated_at = ${now}
+      WHERE id = ${sub.id}
+    `
+    await updateUserPremiumStatus(sub.user_id)
+  }
+
+  return expired.length
+}
+
+/**
+ * Получить статистику подписок
+ */
+export async function getSubscriptionsStats(): Promise<{
+  total: number
+  active: number
+  expired: number
+  cancelled: number
+  byPlan: Record<PlanType, number>
+  byProvider: Record<PaymentProvider, number>
+  revenue: { total: number; thisMonth: number; thisYear: number }
+}> {
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const startOfYear = new Date(now.getFullYear(), 0, 1)
+
+  // Считаем статистику
+  const stats = await db.$queryRaw<any[]>`
+    SELECT 
+      status,
+      plan,
+      provider,
+      amount,
+      created_at
+    FROM subscriptions
+  `
+
+  let total = 0
+  let active = 0
+  let expired = 0
+  let cancelled = 0
+  const byPlan: Record<PlanType, number> = { month: 0, year: 0, lifetime: 0 }
+  const byProvider: Record<PaymentProvider, number> = { yookassa: 0, telegram_stars: 0, manual: 0 }
+  let totalRevenue = 0
+  let monthRevenue = 0
+  let yearRevenue = 0
+
+  for (const row of stats) {
+    total++
+    
+    if (row.status === 'active') active++
+    else if (row.status === 'expired') expired++
+    else if (row.status === 'cancelled') cancelled++
+
+    if (row.plan in byPlan) byPlan[row.plan as PlanType]++
+    if (row.provider in byProvider) byProvider[row.provider as PaymentProvider]++
+
+    if (row.provider !== 'manual' && row.amount) {
+      totalRevenue += row.amount
+      const createdAt = new Date(row.created_at)
+      if (createdAt >= startOfMonth) monthRevenue += row.amount
+      if (createdAt >= startOfYear) yearRevenue += row.amount
+    }
+  }
+
+  return {
+    total,
+    active,
+    expired,
+    cancelled,
+    byPlan,
+    byProvider,
+    revenue: {
+      total: Math.round(totalRevenue / 100),
+      thisMonth: Math.round(monthRevenue / 100),
+      thisYear: Math.round(yearRevenue / 100)
+    }
+  }
+}
+
+/**
+ * Получить подписки с пагинацией
+ */
+export async function getSubscriptionsPaginated(params: {
+  page?: number
+  limit?: number
+  status?: SubscriptionStatus
+  plan?: PlanType
+  provider?: PaymentProvider
+  search?: string
+}): Promise<{
+  subscriptions: any[]
+  total: number
+  page: number
+  totalPages: number
+}> {
+  const { page = 1, limit = 20, status, plan, provider, search } = params
+
+  // Простой запрос без фильтров для начала
+  const offset = (page - 1) * limit
+
+  let whereConditions = 'WHERE 1=1'
+  const queryParams: any[] = []
+  let paramIndex = 1
+
+  if (status) {
+    whereConditions += ` AND s.status = $${paramIndex++}`
+    queryParams.push(status)
+  }
+  if (plan) {
+    whereConditions += ` AND s.plan = $${paramIndex++}`
+    queryParams.push(plan)
+  }
+  if (provider) {
+    whereConditions += ` AND s.provider = $${paramIndex++}`
+    queryParams.push(provider)
+  }
+  if (search) {
+    whereConditions += ` AND (u."telegramId" ILIKE $${paramIndex} OR u.username ILIKE $${paramIndex} OR u."firstName" ILIKE $${paramIndex})`
+    queryParams.push(`%${search}%`)
+    paramIndex++
+  }
+
+  // Получаем общее количество
+  const countResult = await db.$queryRawUnsafe<any[]>(
+    `SELECT COUNT(*) as count FROM subscriptions s JOIN users u ON s.user_id = u.id ${whereConditions}`,
+    ...queryParams
+  )
+  const total = Number(countResult[0]?.count || 0)
+
+  // Получаем записи
+  const results = await db.$queryRawUnsafe<any[]>(
+    `SELECT s.*, u.id as "user_id", u."telegramId", u.username, u."firstName", u."lastName", u."photoUrl", u."isPremium"
+     FROM subscriptions s
+     JOIN users u ON s.user_id = u.id
+     ${whereConditions}
+     ORDER BY s.created_at DESC
+     LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
+    ...queryParams, limit, offset
+  )
+
+  const subscriptions = results.map(row => ({
+    ...mapRowToSubscription(row),
+    user: {
+      id: row.user_id,
+      telegramId: row.telegramId,
+      username: row.username,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      photoUrl: row.photoUrl,
+      isPremium: row.isPremium
+    }
+  }))
+
+  return {
+    subscriptions,
+    total,
+    page,
+    totalPages: Math.ceil(total / limit)
+  }
+}
+
+/**
+ * Маппинг строки из БД в объект
+ */
+function mapRowToSubscription(row: any): SubscriptionData {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    plan: row.plan,
+    status: row.status,
+    provider: row.provider,
+    transactionId: row.transaction_id,
+    amount: row.amount,
+    currency: row.currency,
+    startedAt: row.started_at,
+    expiresAt: row.expires_at,
+    cancelledAt: row.cancelled_at,
+    cancelledReason: row.cancelled_reason,
+    metadata: row.metadata,
+    grantedBy: row.granted_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
 }
