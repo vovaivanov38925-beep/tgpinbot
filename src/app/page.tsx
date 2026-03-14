@@ -314,6 +314,112 @@ export default function PinterestApp() {
   const [isSyncingBoard, setIsSyncingBoard] = useState<string | null>(null)
   const [scrapedBoardData, setScrapedBoardData] = useState<{boardName: string | null, pins: any[]} | null>(null)
 
+  // Payment state
+  const [prices, setPrices] = useState<{
+    stars: { month: number; year: number; lifetime: number } | null
+    ton: { month: number; year: number; lifetime: number } | null
+    tonEnabled: boolean
+    starsEnabled: boolean
+  }>({ stars: null, ton: null, tonEnabled: false, starsEnabled: true })
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+
+  // Load prices on mount
+  useEffect(() => {
+    const loadPrices = async () => {
+      try {
+        const res = await fetch('/api/payments/prices')
+        const data = await res.json()
+        if (data.prices) {
+          setPrices({
+            stars: data.prices.stars,
+            ton: data.prices.ton,
+            tonEnabled: data.enabled?.ton || false,
+            starsEnabled: data.enabled?.stars !== false
+          })
+        }
+      } catch (error) {
+        console.error('Error loading prices:', error)
+      }
+    }
+    loadPrices()
+  }, [])
+
+  // Handle premium purchase
+  const handleBuyPremium = async (plan: 'month' | 'year' | 'lifetime', method: 'stars' | 'ton') => {
+    if (!user || isProcessingPayment) return
+
+    setIsProcessingPayment(true)
+
+    try {
+      if (method === 'stars') {
+        // Create Stars payment
+        const res = await fetch('/api/payments/stars', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, plan })
+        })
+        const data = await res.json()
+
+        if (data.invoiceLink) {
+          // Open invoice link in Telegram
+          const tg = (window as any).Telegram?.WebApp
+          if (tg?.openInvoice) {
+            // Use Telegram WebApp invoice API
+            tg.openInvoice(data.invoiceLink, (status: string) => {
+              if (status === 'paid') {
+                showNotification('Оплата прошла успешно! Вы теперь Premium!', 'Успешно')
+                // Update user state
+                setUser({ ...user, isPremium: true })
+              } else if (status === 'cancelled') {
+                showNotification('Оплата отменена')
+              } else {
+                showNotification('Ошибка оплаты')
+              }
+              setIsProcessingPayment(false)
+            })
+          } else {
+            // Fallback: open link in new tab
+            window.open(data.invoiceLink, '_blank')
+            setIsProcessingPayment(false)
+          }
+        } else {
+          showNotification(data.error || 'Ошибка создания счёта')
+          setIsProcessingPayment(false)
+        }
+      } else if (method === 'ton') {
+        // Create TON payment
+        const res = await fetch('/api/payments/ton', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, plan })
+        })
+        const data = await res.json()
+
+        if (data.httpsLink) {
+          // Open TON wallet
+          const tg = (window as any).Telegram?.WebApp
+          if (tg?.openLink) {
+            tg.openLink(data.httpsLink)
+          } else {
+            window.open(data.httpsLink, '_blank')
+          }
+
+          showNotification(
+            `Отправьте ${data.priceTon} TON на кошелёк. После оплаты нажмите "Проверить оплату".`,
+            'Оплата TON'
+          )
+        } else {
+          showNotification(data.error || 'Ошибка создания счёта TON')
+        }
+        setIsProcessingPayment(false)
+      }
+    } catch (error) {
+      console.error('Payment error:', error)
+      showNotification('Ошибка при обработке платежа')
+      setIsProcessingPayment(false)
+    }
+  }
+
   // Initialize data
   useEffect(() => {
     const initApp = async () => {
@@ -1212,77 +1318,182 @@ export default function PinterestApp() {
           <TabsContent value="premium" className="mt-4 flex-1 flex flex-col overflow-hidden min-w-0 data-[state=inactive]:hidden">
             <ScrollArea className="flex-1 h-0 min-w-0">
               <div className="space-y-4 pr-2 pb-4 min-w-0">
-                <Card className="gradient-full border-0 overflow-hidden">
-                  <CardContent className="p-6 text-center">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
-                      <Crown className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-2">Pinterest Pro</h3>
-                    <p className="text-white/80 text-sm mb-4">
-                      Раскройте полный потенциал вашего вдохновения
-                    </p>
-                    <Badge className="bg-white/20 text-white border-0 mb-4">
-                      <Sparkles className="w-3 h-3 mr-1" />
-                      Премиум подписка
-                    </Badge>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-pink/10">
-                  <CardHeader>
-                    <CardTitle>Преимущества Premium</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {[
-                        { icon: <Zap className="w-5 h-5" />, title: 'Безлимитные пины', desc: 'Сохраняйте сколько угодно идей' },
-                        { icon: <Sparkles className="w-5 h-5" />, title: 'AI-категоризация', desc: 'Умная сортировка ваших пинов' },
-                        { icon: <Target className="w-5 h-5" />, title: 'Продвинутые задачи', desc: 'Создавайте подзадачи и напоминания' },
-                        { icon: <Trophy className="w-5 h-5" />, title: 'Эксклюзивные достижения', desc: 'Особые награды для Premium' },
-                        { icon: <Gift className="w-5 h-5" />, title: 'Бонусные очки', desc: 'Двойные очки за каждое действие' }
-                      ].map((feature, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full gradient-pink flex items-center justify-center text-white">
-                            {feature.icon}
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">{feature.title}</p>
-                            <p className="text-xs text-muted-foreground">{feature.desc}</p>
-                          </div>
+                {/* Показываем статус если уже Premium */}
+                {user?.isPremium ? (
+                  <Card className="gradient-full border-0 overflow-hidden">
+                    <CardContent className="p-6 text-center">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
+                        <Crown className="w-8 h-8 text-white" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2">Вы Premium!</h3>
+                      <p className="text-white/80 text-sm">
+                        {user.premiumExpiry 
+                          ? `До ${new Date(user.premiumExpiry).toLocaleDateString('ru-RU')}`
+                          : 'Навсегда'}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    <Card className="gradient-full border-0 overflow-hidden">
+                      <CardContent className="p-6 text-center">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
+                          <Crown className="w-8 h-8 text-white" />
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                        <h3 className="text-xl font-bold text-white mb-2">Pinterest Pro</h3>
+                        <p className="text-white/80 text-sm mb-4">
+                          Раскройте полный потенциал вашего вдохновения
+                        </p>
+                        <Badge className="bg-white/20 text-white border-0 mb-4">
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          Премиум подписка
+                        </Badge>
+                      </CardContent>
+                    </Card>
 
-                <Card className="border-pink/10">
-                  <CardHeader>
-                    <CardTitle>Выберите план</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button className="w-full gradient-pink text-white border-0 h-12 justify-between">
-                      <div className="text-left">
-                        <p className="font-semibold">Месяц</p>
-                        <p className="text-xs opacity-80">Гибкий план</p>
-                      </div>
-                      <span className="text-lg font-bold">299 ₽</span>
-                    </Button>
-                    <Button className="w-full gradient-lavender text-white border-0 h-12 justify-between">
-                      <div className="text-left">
-                        <p className="font-semibold">Год</p>
-                        <p className="text-xs opacity-80">Выгода 40%</p>
-                      </div>
-                      <span className="text-lg font-bold">1 999 ₽</span>
-                    </Button>
-                    <Button variant="outline" className="w-full h-12 justify-between border-pink/30">
-                      <div className="text-left">
-                        <p className="font-semibold">Навсегда</p>
-                        <p className="text-xs text-muted-foreground">Один раз и навсегда</p>
-                      </div>
-                      <span className="text-lg font-bold">4 999 ₽</span>
-                    </Button>
-                  </CardContent>
-                </Card>
+                    <Card className="border-pink/10">
+                      <CardHeader>
+                        <CardTitle>Преимущества Premium</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {[
+                            { icon: <Zap className="w-5 h-5" />, title: 'Безлимитные пины', desc: 'Сохраняйте сколько угодно идей' },
+                            { icon: <Sparkles className="w-5 h-5" />, title: 'AI-категоризация', desc: 'Умная сортировка ваших пинов' },
+                            { icon: <Target className="w-5 h-5" />, title: 'Продвинутые задачи', desc: 'Создавайте подзадачи и напоминания' },
+                            { icon: <Trophy className="w-5 h-5" />, title: 'Эксклюзивные достижения', desc: 'Особые награды для Premium' },
+                            { icon: <Gift className="w-5 h-5" />, title: 'Бонусные очки', desc: 'Двойные очки за каждое действие' }
+                          ].map((feature, i) => (
+                            <div key={i} className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full gradient-pink flex items-center justify-center text-white">
+                                {feature.icon}
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm">{feature.title}</p>
+                                <p className="text-xs text-muted-foreground">{feature.desc}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-pink/10">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Star className="w-5 h-5 text-yellow-500" />
+                          Оплата через Telegram Stars
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <Button 
+                          onClick={() => handleBuyPremium('month', 'stars')}
+                          disabled={isProcessingPayment}
+                          className="w-full gradient-pink text-white border-0 h-12 justify-between"
+                        >
+                          <div className="text-left">
+                            <p className="font-semibold">Месяц</p>
+                            <p className="text-xs opacity-80">Гибкий план</p>
+                          </div>
+                          <span className="text-lg font-bold flex items-center gap-1">
+                            <Star className="w-4 h-4" />
+                            {prices.stars?.month || 200}
+                          </span>
+                        </Button>
+                        <Button 
+                          onClick={() => handleBuyPremium('year', 'stars')}
+                          disabled={isProcessingPayment}
+                          className="w-full gradient-lavender text-white border-0 h-12 justify-between"
+                        >
+                          <div className="text-left">
+                            <p className="font-semibold">Год</p>
+                            <p className="text-xs opacity-80">Выгода 40%</p>
+                          </div>
+                          <span className="text-lg font-bold flex items-center gap-1">
+                            <Star className="w-4 h-4" />
+                            {prices.stars?.year || 1333}
+                          </span>
+                        </Button>
+                        <Button 
+                          onClick={() => handleBuyPremium('lifetime', 'stars')}
+                          disabled={isProcessingPayment}
+                          variant="outline" 
+                          className="w-full h-12 justify-between border-pink/30"
+                        >
+                          <div className="text-left">
+                            <p className="font-semibold">Навсегда</p>
+                            <p className="text-xs text-muted-foreground">Один раз и навсегда</p>
+                          </div>
+                          <span className="text-lg font-bold flex items-center gap-1">
+                            <Star className="w-4 h-4" />
+                            {prices.stars?.lifetime || 3333}
+                          </span>
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* TON оплата */}
+                    {prices.tonEnabled && (
+                      <Card className="border-pink/10">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Diamond className="w-5 h-5 text-blue-400" />
+                            Оплата через TON
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <Button 
+                            onClick={() => handleBuyPremium('month', 'ton')}
+                            disabled={isProcessingPayment}
+                            variant="outline"
+                            className="w-full h-12 justify-between border-blue-400/30 hover:bg-blue-500/10"
+                          >
+                            <div className="text-left">
+                              <p className="font-semibold">Месяц</p>
+                              <p className="text-xs text-muted-foreground">Криптовалюта</p>
+                            </div>
+                            <span className="text-lg font-bold">
+                              {prices.ton?.month || 1.1} TON
+                            </span>
+                          </Button>
+                          <Button 
+                            onClick={() => handleBuyPremium('year', 'ton')}
+                            disabled={isProcessingPayment}
+                            variant="outline"
+                            className="w-full h-12 justify-between border-blue-400/30 hover:bg-blue-500/10"
+                          >
+                            <div className="text-left">
+                              <p className="font-semibold">Год</p>
+                              <p className="text-xs text-muted-foreground">Выгода 40%</p>
+                            </div>
+                            <span className="text-lg font-bold">
+                              {prices.ton?.year || 7.2} TON
+                            </span>
+                          </Button>
+                          <Button 
+                            onClick={() => handleBuyPremium('lifetime', 'ton')}
+                            disabled={isProcessingPayment}
+                            variant="outline"
+                            className="w-full h-12 justify-between border-blue-400/30 hover:bg-blue-500/10"
+                          >
+                            <div className="text-left">
+                              <p className="font-semibold">Навсегда</p>
+                              <p className="text-xs text-muted-foreground">Лучшее предложение</p>
+                            </div>
+                            <span className="text-lg font-bold">
+                              {prices.ton?.lifetime || 18} TON
+                            </span>
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    <p className="text-xs text-center text-muted-foreground px-4">
+                      Нажимая кнопку, вы соглашаетесь с условиями использования.
+                      Подписка продлевается автоматически.
+                    </p>
+                  </>
+                )}
               </div>
             </ScrollArea>
           </TabsContent>

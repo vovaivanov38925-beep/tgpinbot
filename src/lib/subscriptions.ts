@@ -12,7 +12,7 @@ export type PlanType = 'month' | 'year' | 'lifetime'
 export type SubscriptionStatus = 'pending' | 'active' | 'expired' | 'cancelled' | 'refunded'
 
 // Провайдеры оплаты
-export type PaymentProvider = 'yookassa' | 'telegram_stars' | 'manual'
+export type PaymentProvider = 'yookassa' | 'telegram_stars' | 'ton' | 'manual'
 
 // Интерфейс подписки
 export interface SubscriptionData {
@@ -279,7 +279,7 @@ export async function getSubscriptionsStats(): Promise<{
   let expired = 0
   let cancelled = 0
   const byPlan: Record<PlanType, number> = { month: 0, year: 0, lifetime: 0 }
-  const byProvider: Record<PaymentProvider, number> = { yookassa: 0, telegram_stars: 0, manual: 0 }
+  const byProvider: Record<PaymentProvider, number> = { yookassa: 0, telegram_stars: 0, ton: 0, manual: 0 }
   let totalRevenue = 0
   let monthRevenue = 0
   let yearRevenue = 0

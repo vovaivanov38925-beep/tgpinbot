@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Save, CreditCard, Star, Check } from 'lucide-react'
+import { Save, CreditCard, Star, Check, Diamond, RefreshCw } from 'lucide-react'
 
 interface PaymentSettings {
   id: string
@@ -15,8 +15,16 @@ interface PaymentSettings {
   yookassaMonthPrice: number
   yookassaYearPrice: number
   yookassaLifetimePrice: number
+  tonEnabled: boolean
+  tonMonthPrice: number
+  tonYearPrice: number
+  tonLifetimePrice: number
+  tonWalletAddress: string | null
   currency: string
   trialDays: number
+  starToRubRate: number
+  tonToRubRate: number
+  ratesUpdatedAt: string | null
 }
 
 export default function AdminPaymentsPage() {
@@ -24,6 +32,7 @@ export default function AdminPaymentsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [updatingRates, setUpdatingRates] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/payments')
@@ -51,6 +60,33 @@ export default function AdminPaymentsPage() {
       setTimeout(() => setSaved(false), 2000)
     }
     setSaving(false)
+  }
+
+  const handleUpdateRates = async () => {
+    setUpdatingRates(true)
+    try {
+      // Примерные актуальные курсы
+      const res = await fetch('/api/payments/prices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          starToRub: 1.5,  // ~$0.015 за star
+          tonToRub: 280    // примерный курс TON
+        })
+      })
+      const data = await res.json()
+      if (data.success && data.settings) {
+        setSettings({
+          ...settings!,
+          starToRubRate: data.settings.starToRubRate,
+          tonToRubRate: data.settings.tonToRubRate,
+          ratesUpdatedAt: data.settings.ratesUpdatedAt
+        })
+      }
+    } catch (error) {
+      console.error('Error updating rates:', error)
+    }
+    setUpdatingRates(false)
   }
 
   const updateSetting = (key: keyof PaymentSettings, value: string | number | boolean) => {
@@ -103,10 +139,58 @@ export default function AdminPaymentsPage() {
         </button>
       </div>
 
+      {/* Exchange Rates */}
+      <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Курсы валют</h2>
+          <button
+            onClick={handleUpdateRates}
+            disabled={updatingRates}
+            className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
+          >
+            {updatingRates ? (
+              <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Обновить
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-slate-400 mb-2">1 Star = ? RUB</label>
+            <input
+              type="number"
+              step="0.01"
+              value={settings.starToRubRate || 1.5}
+              onChange={(e) => updateSetting('starToRubRate', parseFloat(e.target.value) || 1.5)}
+              className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white"
+            />
+            <p className="text-xs text-slate-500 mt-1">Telegram продаёт звёзды по ~$0.013-0.017</p>
+          </div>
+          <div>
+            <label className="block text-sm text-slate-400 mb-2">1 TON = ? RUB</label>
+            <input
+              type="number"
+              step="1"
+              value={settings.tonToRubRate || 280}
+              onChange={(e) => updateSetting('tonToRubRate', parseFloat(e.target.value) || 280)}
+              className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white"
+            />
+            <p className="text-xs text-slate-500 mt-1">Курс TON к рублю</p>
+          </div>
+        </div>
+        {settings.ratesUpdatedAt && (
+          <p className="text-xs text-slate-500 mt-4">
+            Последнее обновление: {new Date(settings.ratesUpdatedAt).toLocaleString('ru-RU')}
+          </p>
+        )}
+      </div>
+
       {/* Telegram Stars */}
       <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center">
             <Star className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -139,6 +223,7 @@ export default function AdminPaymentsPage() {
               disabled={!settings.starsEnabled}
               className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
             />
+            <p className="text-xs text-slate-500 mt-1">≈ {Math.round((settings.starsMonthPrice || 200) * (settings.starToRubRate || 1.5))} ₽</p>
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-2">Год (Stars)</label>
@@ -149,6 +234,7 @@ export default function AdminPaymentsPage() {
               disabled={!settings.starsEnabled}
               className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
             />
+            <p className="text-xs text-slate-500 mt-1">≈ {Math.round((settings.starsYearPrice || 1333) * (settings.starToRubRate || 1.5))} ₽</p>
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-2">Навсегда (Stars)</label>
@@ -159,6 +245,88 @@ export default function AdminPaymentsPage() {
               disabled={!settings.starsEnabled}
               className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
             />
+            <p className="text-xs text-slate-500 mt-1">≈ {Math.round((settings.starsLifetimePrice || 3333) * (settings.starToRubRate || 1.5))} ₽</p>
+          </div>
+        </div>
+      </div>
+
+      {/* TON Cryptocurrency */}
+      <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+            <Diamond className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white">TON Cryptocurrency</h2>
+            <p className="text-sm text-slate-400">Оплата криптовалютой</p>
+          </div>
+          <label className="ml-auto flex items-center gap-2 cursor-pointer">
+            <span className="text-sm text-slate-400">Включить</span>
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={settings.tonEnabled}
+                onChange={(e) => updateSetting('tonEnabled', e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-11 h-6 rounded-full transition-colors ${settings.tonEnabled ? 'bg-pink-500' : 'bg-slate-600'}`}>
+                <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${settings.tonEnabled ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
+              </div>
+            </div>
+          </label>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-slate-400 mb-2">TON Wallet Address</label>
+            <input
+              type="text"
+              value={settings.tonWalletAddress || ''}
+              onChange={(e) => updateSetting('tonWalletAddress', e.target.value)}
+              disabled={!settings.tonEnabled}
+              placeholder="EQ..."
+              className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 disabled:opacity-50 font-mono text-sm"
+            />
+            <p className="text-xs text-slate-500 mt-1">Адрес кошелька для приёма TON</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Месяц (TON)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={settings.tonMonthPrice}
+                onChange={(e) => updateSetting('tonMonthPrice', parseFloat(e.target.value) || 0)}
+                disabled={!settings.tonEnabled}
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
+              />
+              <p className="text-xs text-slate-500 mt-1">≈ {Math.round((settings.tonMonthPrice || 1.1) * (settings.tonToRubRate || 280))} ₽</p>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Год (TON)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={settings.tonYearPrice}
+                onChange={(e) => updateSetting('tonYearPrice', parseFloat(e.target.value) || 0)}
+                disabled={!settings.tonEnabled}
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
+              />
+              <p className="text-xs text-slate-500 mt-1">≈ {Math.round((settings.tonYearPrice || 7.2) * (settings.tonToRubRate || 280))} ₽</p>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Навсегда (TON)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={settings.tonLifetimePrice}
+                onChange={(e) => updateSetting('tonLifetimePrice', parseFloat(e.target.value) || 0)}
+                disabled={!settings.tonEnabled}
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
+              />
+              <p className="text-xs text-slate-500 mt-1">≈ {Math.round((settings.tonLifetimePrice || 18) * (settings.tonToRubRate || 280))} ₽</p>
+            </div>
           </div>
         </div>
       </div>
@@ -171,7 +339,7 @@ export default function AdminPaymentsPage() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">YooKassa</h2>
-            <p className="text-sm text-slate-400">Платёжная система</p>
+            <p className="text-sm text-slate-400">Платёжная система (карты, СБП)</p>
           </div>
           <label className="ml-auto flex items-center gap-2 cursor-pointer">
             <span className="text-sm text-slate-400">Включить</span>
@@ -217,7 +385,7 @@ export default function AdminPaymentsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-2">Месяц (₽)</label>
+              <label className="block text-sm text-slate-400 mb-2">Месяц (копейки)</label>
               <input
                 type="number"
                 value={settings.yookassaMonthPrice}
@@ -225,9 +393,10 @@ export default function AdminPaymentsPage() {
                 disabled={!settings.yookassaEnabled}
                 className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
               />
+              <p className="text-xs text-slate-500 mt-1">{Math.round((settings.yookassaMonthPrice || 29900) / 100)} ₽</p>
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-2">Год (₽)</label>
+              <label className="block text-sm text-slate-400 mb-2">Год (копейки)</label>
               <input
                 type="number"
                 value={settings.yookassaYearPrice}
@@ -235,9 +404,10 @@ export default function AdminPaymentsPage() {
                 disabled={!settings.yookassaEnabled}
                 className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
               />
+              <p className="text-xs text-slate-500 mt-1">{Math.round((settings.yookassaYearPrice || 199900) / 100)} ₽</p>
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-2">Навсегда (₽)</label>
+              <label className="block text-sm text-slate-400 mb-2">Навсегда (копейки)</label>
               <input
                 type="number"
                 value={settings.yookassaLifetimePrice}
@@ -245,6 +415,7 @@ export default function AdminPaymentsPage() {
                 disabled={!settings.yookassaEnabled}
                 className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white disabled:opacity-50"
               />
+              <p className="text-xs text-slate-500 mt-1">{Math.round((settings.yookassaLifetimePrice || 499900) / 100)} ₽</p>
             </div>
           </div>
         </div>

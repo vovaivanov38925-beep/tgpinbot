@@ -186,16 +186,28 @@ model PaymentSettings {
   yookassaEnabled       Boolean  @default(false)
   yookassaShopId        String?
   yookassaSecretKey     String?
-  yookassaMonthPrice    Int      @default(299)
-  yookassaYearPrice     Int      @default(1999)
-  yookassaLifetimePrice Int      @default(4999)
-  
+  yookassaMonthPrice    Int      @default(29900)    // в копейках: 299 руб
+  yookassaYearPrice     Int      @default(199900)   // в копейках: 1999 руб
+  yookassaLifetimePrice Int      @default(499900)   // в копейках: 4999 руб
+
+  // TON Cryptocurrency
+  tonEnabled            Boolean  @default(false)
+  tonMonthPrice         Float    @default(1.1)      // в TON
+  tonYearPrice          Float    @default(7.2)      // в TON
+  tonLifetimePrice      Float    @default(18.0)     // в TON
+  tonWalletAddress      String?                     // адрес для приёма TON
+
   // General
   currency              String   @default("RUB")
   trialDays             Int      @default(7)
-  
+
+  // Курсы валют (обновляются автоматически)
+  starToRubRate         Float    @default(1.5)      // 1 Star = 1.5 RUB
+  tonToRubRate          Float    @default(280)      // 1 TON = 280 RUB
+  ratesUpdatedAt        DateTime?
+
   updatedAt             DateTime @updatedAt
-  
+
   @@map("payment_settings")
 }
 
