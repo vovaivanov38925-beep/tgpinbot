@@ -4,11 +4,9 @@ import { logger } from '@/lib/logger'
 
 /**
  * Cron Job: Проверка истекших подписок
- * Вызывается каждые 5-10 минут через cron сервис (Vercel Cron, Railway Scheduler, etc.)
+ * Вызывается каждые 5-10 минут через cron сервис
  *
- * Пример настройки cron:
- * - Vercel: vercel.json -> "crons": [{ "path": "/api/cron/subscriptions", "schedule": "*/5 * * * *" }]
- * - Railway: Settings -> Schedule -> "*/5 * * * *"
+ * Пример расписания: каждые 5 минут
  */
 
 // Секретный ключ для защиты от несанкционированных вызовов
