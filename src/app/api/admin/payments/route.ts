@@ -10,19 +10,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    // Пытаемся получить настройки через raw query чтобы избежать проблем с новыми полями
     const results = await db.$queryRaw<any[]>`
       SELECT * FROM payment_settings LIMIT 1
     `
 
     let settings = results[0] || null
 
-    // Если нет настроек - создаём с минимальными полями
+    // Если нет настроек - создаём
     if (!settings) {
       await db.$executeRaw`
-        INSERT INTO payment_settings (id, "starsEnabled", "starsMonthPrice", "starsYearPrice", "starsLifetimePrice", "yookassaEnabled", currency, "trialDays", "updatedAt")
-        VALUES (gen_random_uuid(), true, 200, 1333, 3333, false, 'RUB', 7, NOW())
-        RETURNING *
+        INSERT INTO payment_settings (id, starsenabled, starsmonthprice, starsyearprice, starslifetimeprice, yookassaenabled, currency, trialdays, updatedat)
+        VALUES ('default', true, 200, 1333, 3333, false, 'RUB', 7, NOW())
       `
 
       const newResults = await db.$queryRaw<any[]>`
@@ -31,35 +29,33 @@ export async function GET() {
       settings = newResults[0]
     }
 
-    // Устанавливаем дефолтные значения для новых полей если их нет
     const response = {
       id: settings.id,
-      starsEnabled: settings.starsEnabled ?? true,
-      starsMonthPrice: settings.starsMonthPrice ?? 200,
-      starsYearPrice: settings.starsYearPrice ?? 1333,
-      starsLifetimePrice: settings.starsLifetimePrice ?? 3333,
-      yookassaEnabled: settings.yookassaEnabled ?? false,
-      yookassaShopId: settings.yookassaShopId ?? null,
-      yookassaSecretKey: settings.yookassaSecretKey ?? null,
-      yookassaMonthPrice: settings.yookassaMonthPrice ?? 29900,
-      yookassaYearPrice: settings.yookassaYearPrice ?? 199900,
-      yookassaLifetimePrice: settings.yookassaLifetimePrice ?? 499900,
-      tonEnabled: settings.tonEnabled ?? false,
-      tonMonthPrice: settings.tonMonthPrice ?? 1.1,
-      tonYearPrice: settings.tonYearPrice ?? 7.2,
-      tonLifetimePrice: settings.tonLifetimePrice ?? 18,
-      tonWalletAddress: settings.tonWalletAddress ?? null,
+      starsEnabled: settings.starsenabled ?? true,
+      starsMonthPrice: settings.starsmonthprice ?? 200,
+      starsYearPrice: settings.starsyearprice ?? 1333,
+      starsLifetimePrice: settings.starslifetimeprice ?? 3333,
+      yookassaEnabled: settings.yookassaenabled ?? false,
+      yookassaShopId: settings.yookassashopid ?? null,
+      yookassaSecretKey: settings.yookassasecretkey ?? null,
+      yookassaMonthPrice: settings.yookassamonthprice ?? 29900,
+      yookassaYearPrice: settings.yookassayearprice ?? 199900,
+      yookassaLifetimePrice: settings.yookassalifetimeprice ?? 499900,
+      tonEnabled: settings.tonenabled ?? false,
+      tonMonthPrice: settings.tonmonthprice ?? 1.1,
+      tonYearPrice: settings.tonyearprice ?? 7.2,
+      tonLifetimePrice: settings.tonlifetimeprice ?? 18,
+      tonWalletAddress: settings.tonwalletaddress ?? null,
       currency: settings.currency ?? 'RUB',
-      trialDays: settings.trialDays ?? 7,
-      starToRubRate: settings.starToRubRate ?? 1.5,
-      tonToRubRate: settings.tonToRubRate ?? 280,
-      ratesUpdatedAt: settings.ratesUpdatedAt ?? null
+      trialDays: settings.trialdays ?? 7,
+      starToRubRate: settings.startorubrate ?? 1.5,
+      tonToRubRate: settings.tontorubrate ?? 280,
+      ratesUpdatedAt: settings.ratesupdatedat ?? null
     }
 
     return NextResponse.json({ settings: response })
   } catch (error) {
     console.error('Get payment settings error:', error)
-    // Возвращаем дефолтные настройки при ошибке
     return NextResponse.json({
       settings: {
         id: 'default',
@@ -98,7 +94,6 @@ export async function PUT(request: NextRequest) {
 
     const data = await request.json()
 
-    // Получаем существующие настройки
     const results = await db.$queryRaw<any[]>`
       SELECT id FROM payment_settings LIMIT 1
     `
@@ -106,47 +101,34 @@ export async function PUT(request: NextRequest) {
     const existingId = results[0]?.id
 
     if (existingId) {
-      // Обновляем существующие
       await db.$executeRaw`
         UPDATE payment_settings SET
-          "starsEnabled" = ${data.starsEnabled ?? false},
-          "starsMonthPrice" = ${data.starsMonthPrice ?? 200},
-          "starsYearPrice" = ${data.starsYearPrice ?? 1333},
-          "starsLifetimePrice" = ${data.starsLifetimePrice ?? 3333},
-          "yookassaEnabled" = ${data.yookassaEnabled ?? false},
-          "yookassaShopId" = ${data.yookassaShopId || null},
-          "yookassaSecretKey" = ${data.yookassaSecretKey || null},
-          "yookassaMonthPrice" = ${data.yookassaMonthPrice ?? 29900},
-          "yookassaYearPrice" = ${data.yookassaYearPrice ?? 199900},
-          "yookassaLifetimePrice" = ${data.yookassaLifetimePrice ?? 499900},
+          starsenabled = ${data.starsEnabled ?? false},
+          starsmonthprice = ${data.starsMonthPrice ?? 200},
+          starsyearprice = ${data.starsYearPrice ?? 1333},
+          starslifetimeprice = ${data.starsLifetimePrice ?? 3333},
+          yookassaenabled = ${data.yookassaEnabled ?? false},
+          yookassashopid = ${data.yookassaShopId || null},
+          yookassasecretkey = ${data.yookassaSecretKey || null},
+          yookassamonthprice = ${data.yookassaMonthPrice ?? 29900},
+          yookassayearprice = ${data.yookassaYearPrice ?? 199900},
+          yookassalifetimeprice = ${data.yookassaLifetimePrice ?? 499900},
+          tonenabled = ${data.tonEnabled ?? false},
+          tonmonthprice = ${data.tonMonthPrice ?? 1.1},
+          tonyearprice = ${data.tonYearPrice ?? 7.2},
+          tonlifetimeprice = ${data.tonLifetimePrice ?? 18},
+          tonwalletaddress = ${data.tonWalletAddress || null},
           currency = ${data.currency || 'RUB'},
-          "trialDays" = ${data.trialDays ?? 7},
-          "updatedAt" = NOW()
+          trialdays = ${data.trialDays ?? 7},
+          startorubrate = ${data.starToRubRate ?? 1.5},
+          tontorubrate = ${data.tonToRubRate ?? 280},
+          updatedat = NOW()
         WHERE id = ${existingId}
       `
-
-      // Пытаемся обновить TON поля если они существуют
-      try {
-        await db.$executeRaw`
-          UPDATE payment_settings SET
-            "tonEnabled" = ${data.tonEnabled ?? false},
-            "tonMonthPrice" = ${data.tonMonthPrice ?? 1.1},
-            "tonYearPrice" = ${data.tonYearPrice ?? 7.2},
-            "tonLifetimePrice" = ${data.tonLifetimePrice ?? 18},
-            "tonWalletAddress" = ${data.tonWalletAddress || null},
-            "starToRubRate" = ${data.starToRubRate ?? 1.5},
-            "tonToRubRate" = ${data.tonToRubRate ?? 280}
-          WHERE id = ${existingId}
-        `
-      } catch (e) {
-        // Игнорируем ошибку если колонок ещё нет
-        console.log('TON columns not yet migrated')
-      }
     } else {
-      // Создаём новые
       await db.$executeRaw`
-        INSERT INTO payment_settings (id, "starsEnabled", "starsMonthPrice", "starsYearPrice", "starsLifetimePrice", "yookassaEnabled", currency, "trialDays", "updatedAt")
-        VALUES (gen_random_uuid(), ${data.starsEnabled ?? true}, ${data.starsMonthPrice ?? 200}, ${data.starsYearPrice ?? 1333}, ${data.starsLifetimePrice ?? 3333}, ${data.yookassaEnabled ?? false}, ${data.currency || 'RUB'}, ${data.trialDays ?? 7}, NOW())
+        INSERT INTO payment_settings (id, starsenabled, starsmonthprice, starsyearprice, starslifetimeprice, yookassaenabled, tonenabled, tonwalletaddress, currency, trialdays, updatedat)
+        VALUES ('default', ${data.starsEnabled ?? true}, ${data.starsMonthPrice ?? 200}, ${data.starsYearPrice ?? 1333}, ${data.starsLifetimePrice ?? 3333}, ${data.yookassaEnabled ?? false}, ${data.tonEnabled ?? false}, ${data.tonWalletAddress || null}, ${data.currency || 'RUB'}, ${data.trialDays ?? 7}, NOW())
       `
     }
 
