@@ -1136,25 +1136,34 @@ export default function PinterestApp() {
                   <>
                     {/* Активные задачи */}
                     {tasks.filter(t => t.status !== 'completed').map((task, index) => {
-                      // Показываем title или первую строку description
-                      const taskTitle = task.title || task.description?.split('\n')[0] || 'Задача'
-                      const taskDesc = task.title && task.description ? task.description : null
-
                       return (
                         <Card
                           key={task.id || `task-${index}`}
                           className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden hover:shadow-md transition-shadow"
                         >
+                          {/* Картинка задачи если есть */}
+                          {task.imageUrl && (
+                            <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative">
+                              <img
+                                src={task.imageUrl}
+                                alt={task.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none'
+                                }}
+                              />
+                            </div>
+                          )}
                           <CardContent className="p-4">
                             {/* Заголовок и бейджи */}
                             <div className="flex items-start justify-between gap-3 mb-3">
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-base text-slate-900 dark:text-white truncate">
-                                  {taskTitle}
+                                <h4 className="font-semibold text-base text-slate-900 dark:text-white">
+                                  {task.title || 'Без названия'}
                                 </h4>
-                                {taskDesc && (
+                                {task.description && (
                                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                                    {taskDesc}
+                                    {task.description}
                                   </p>
                                 )}
                               </div>
@@ -1238,8 +1247,6 @@ export default function PinterestApp() {
                         </div>
 
                         {tasks.filter(t => t.status === 'completed').map((task, index) => {
-                          const taskTitle = task.title || task.description?.split('\n')[0] || 'Задача'
-
                           return (
                             <Card
                               key={task.id || `completed-${index}`}
@@ -1252,7 +1259,7 @@ export default function PinterestApp() {
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <p className="font-medium text-slate-500 dark:text-slate-400 line-through truncate">
-                                      {taskTitle}
+                                      {task.title || 'Задача'}
                                     </p>
                                     <div className="flex items-center gap-2 mt-0.5">
                                       <span className="text-xs text-green-600 dark:text-green-400 font-medium">
