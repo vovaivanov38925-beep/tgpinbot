@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { checkBoardsSyncLimit } from '@/lib/limits';
+import { checkBoardsSyncLimit, checkBoardsLimit } from '@/lib/limits';
 
 // Extract board metadata from Pinterest page
 async function getBoardMetadata(boardUrl: string): Promise<{ boardName: string | null; boardUsername: string | null }> {
@@ -217,6 +217,24 @@ export async function POST(request: NextRequest) {
         });
         console.log('[Scraper Task] Updated existing board:', existingBoard.id);
       } else {
+        // Проверяем лимит на количество досок ПЕРЕД созданием новой
+        const boardsLimit = await checkBoardsLimit(userId);
+        console.log('[Scraper Task] Boards limit check:', boardsLimit);
+        
+        if (!boardsLimit.allowed) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: boardsLimit.message || 'Достигнут лимит досок',
+              limitExceeded: true,
+              type: 'boards_total',
+              current: boardsLimit.current,
+              limit: boardsLimit.limit
+            },
+            { status: 403 }
+          );
+        }
+
         // Создаём новую запись
         const newBoard = await db.pinterestBoard.create({
           data: {

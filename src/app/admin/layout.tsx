@@ -14,7 +14,8 @@ import {
   Shield,
   Pin,
   Megaphone,
-  MessageCircle
+  MessageCircle,
+  Crown
 } from 'lucide-react'
 
 interface AdminData {
@@ -70,6 +71,7 @@ export default function AdminLayout({
   const navItems = [
     { href: '/admin', icon: LayoutDashboard, label: 'Дашборд' },
     { href: '/admin/users', icon: Users, label: 'Пользователи' },
+    { href: '/admin/subscriptions', icon: Crown, label: 'Подписки' },
     { href: '/admin/pins', icon: Pin, label: 'Пины' },
     { href: '/admin/support', icon: MessageCircle, label: 'Поддержка' },
     { href: '/admin/marketing', icon: Megaphone, label: 'Маркетинг' },

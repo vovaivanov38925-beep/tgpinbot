@@ -33,6 +33,7 @@ model User {
   pinterestBoards    PinterestBoard[]
   supportTickets     SupportTicket[]
   scraperTasks       ScraperTask[]
+  subscriptions      Subscription[]
 
   @@map("users")
 }
@@ -458,4 +459,49 @@ model ScraperTask {
   @@index([status])
   @@index([createdAt])
   @@map("scraper_tasks")
+}
+
+// Подписки пользователей
+model Subscription {
+  id              String   @id @default(cuid())
+  userId          String
+  
+  // Тип плана
+  plan            String   // month, year, lifetime
+  
+  // Статус подписки
+  status          String   @default("pending") // pending, active, expired, cancelled, refunded
+  
+  // Провайдер оплаты
+  provider        String   // yookassa, telegram_stars, manual (admin gift)
+  transactionId   String?  // ID транзакции из PaymentTransaction
+  
+  // Финансы
+  amount          Int      @default(0)   // Сумма в копейках/центах
+  currency        String   @default("RUB")
+  
+  // Даты
+  startedAt       DateTime?  // Когда начала действовать
+  expiresAt       DateTime?  // Когда истекает (null для lifetime)
+  cancelledAt     DateTime?  // Когда была отменена
+  cancelledReason String?   // Причина отмены
+  
+  // Дополнительная информация
+  metadata        String?    // JSON с доп. данными
+  
+  // Админ, который выдал подписку (для manual)
+  grantedBy       String?    // ID админа
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([provider])
+  @@index([startedAt])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@map("subscriptions")
 }

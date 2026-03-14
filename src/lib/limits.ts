@@ -11,6 +11,7 @@ export const LIMITS = {
     MAX_PINS: 50,                    // Максимум пинов
     MAX_TASKS: 20,                   // Максимум задач
     MAX_ACTIVE_TASKS: 10,            // Максимум активных задач (pending + in_progress)
+    MAX_BOARDS: 1,                   // Максимум досок
     MAX_BOARDS_PER_DAY: 1,           // Синхронизаций досок в день
     MAX_PINS_PER_SYNC: 25,           // Максимум пинов за одну синхронизацию
     SMART_REMINDERS: false,          // Умные напоминания
@@ -20,6 +21,7 @@ export const LIMITS = {
     MAX_PINS: Infinity,              // Безлимит пинов
     MAX_TASKS: Infinity,             // Безлимит задач
     MAX_ACTIVE_TASKS: Infinity,      // Безлимит активных задач
+    MAX_BOARDS: 3,                   // Максимум досок для Pro
     MAX_BOARDS_PER_DAY: Infinity,    // Безлимит синхронизаций
     MAX_PINS_PER_SYNC: Infinity,     // Безлимит пинов за синхронизацию
     SMART_REMINDERS: true,           // Умные напоминания включены
@@ -31,6 +33,7 @@ export interface UserLimits {
   maxPins: number
   maxTasks: number
   maxActiveTasks: number
+  maxBoards: number
   maxBoardsPerDay: number
   maxPinsPerSync: number
   smartReminders: boolean
@@ -62,6 +65,7 @@ export async function getUserLimits(userId: string): Promise<UserLimits> {
     maxPins: limits.MAX_PINS,
     maxTasks: limits.MAX_TASKS,
     maxActiveTasks: limits.MAX_ACTIVE_TASKS,
+    maxBoards: limits.MAX_BOARDS,
     maxBoardsPerDay: limits.MAX_BOARDS_PER_DAY,
     maxPinsPerSync: limits.MAX_PINS_PER_SYNC,
     smartReminders: limits.SMART_REMINDERS,
@@ -179,6 +183,36 @@ export async function checkActiveTasksLimit(userId: string): Promise<LimitsCheck
 }
 
 /**
+ * Проверить лимит на общее количество досок
+ */
+export async function checkBoardsLimit(userId: string): Promise<LimitsCheck> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      isPremium: true,
+      _count: {
+        select: { pinterestBoards: true }
+      }
+    }
+  })
+
+  const isPremium = user?.isPremium ?? false
+  const current = user?._count.pinterestBoards ?? 0
+  const limit = isPremium ? LIMITS.PREMIUM.MAX_BOARDS : LIMITS.FREE.MAX_BOARDS
+  const remaining = Math.max(0, limit - current)
+
+  return {
+    allowed: current < limit,
+    current,
+    limit,
+    remaining,
+    message: current >= limit
+      ? `Достигнут лимит досок (${limit}). ${isPremium ? 'Удалите ненужную доску чтобы добавить новую.' : 'Оформите Premium для увеличения лимита до 3 досок!'}`
+      : undefined
+  }
+}
+
+/**
  * Проверить лимит синхронизаций досок в день
  */
 export async function checkBoardsSyncLimit(userId: string): Promise<LimitsCheck> {
@@ -254,16 +288,18 @@ export async function getUserLimitsStats(userId: string): Promise<{
   pins: LimitsCheck
   tasks: LimitsCheck
   activeTasks: LimitsCheck
+  boards: LimitsCheck
   boardsSync: LimitsCheck
   limits: UserLimits
 }> {
-  const [pins, tasks, activeTasks, boardsSync, limits] = await Promise.all([
+  const [pins, tasks, activeTasks, boards, boardsSync, limits] = await Promise.all([
     checkPinsLimit(userId),
     checkTasksLimit(userId),
     checkActiveTasksLimit(userId),
+    checkBoardsLimit(userId),
     checkBoardsSyncLimit(userId),
     getUserLimits(userId),
   ])
 
-  return { pins, tasks, activeTasks, boardsSync, limits }
+  return { pins, tasks, activeTasks, boards, boardsSync, limits }
 }

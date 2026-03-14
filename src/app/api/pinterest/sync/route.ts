@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { checkPinsLimit, checkBoardsSyncLimit, checkPinsPerSyncLimit, getUserLimits } from '@/lib/limits'
+import { checkPinsLimit, checkBoardsSyncLimit, checkBoardsLimit, checkPinsPerSyncLimit, getUserLimits } from '@/lib/limits'
 import { logger } from '@/lib/logger'
 import { db } from '@/lib/db'
 
@@ -128,7 +128,22 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Если доска новая - проверяем лимит на количество досок
     if (!pinterestBoard) {
+      const boardsLimit = await checkBoardsLimit(userId)
+      if (!boardsLimit.allowed) {
+        return NextResponse.json(
+          {
+            error: boardsLimit.message || 'Достигнут лимит досок',
+            limitExceeded: true,
+            type: 'boards_total',
+            current: boardsLimit.current,
+            limit: boardsLimit.limit
+          },
+          { status: 403 }
+        )
+      }
+
       pinterestBoard = await db.pinterestBoard.create({
         data: {
           userId,
@@ -160,6 +175,7 @@ export async function POST(request: NextRequest) {
             title: pin.title,
             description: pin.description,
             sourceUrl: pin.sourceUrl || cleanBoardUrl,
+            boardUrl: cleanBoardUrl,  // Добавляем boardUrl для группировки
             category,
             points: 0, // No points for just saving - points only for completing tasks
           },
