@@ -1134,129 +1134,145 @@ export default function PinterestApp() {
                   </div>
                 ) : (
                   <>
-                    {tasks.filter(t => t.status !== 'completed').map((task, index) => (
-                      <Card key={task.id || `task-${index}`} className="border-lavender/20 hover:shadow-lg hover:border-lavender/40 transition-all duration-300 overflow-hidden group">
-                        <CardContent className="p-0">
-                          {/* Верхняя часть с градиентом */}
-                          <div className="bg-gradient-to-r from-violet-500/10 to-pink-500/10 px-4 py-3 border-b border-border/30">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {task.priority === 'high' && (
-                                  <Badge variant="destructive" className="text-xs gap-1">
-                                    <Zap className="w-3 h-3" />
-                                    Важно
-                                  </Badge>
-                                )}
-                                {task.priority === 'medium' && (
-                                  <Badge variant="secondary" className="text-xs">Средний</Badge>
-                                )}
-                                {task.priority === 'low' && (
-                                  <Badge variant="outline" className="text-xs">Низкий</Badge>
-                                )}
-                                {task.category && (
-                                  <Badge variant="outline" className="text-xs gap-1">
-                                    {categoryIcons[task.category]}
-                                    <span>{categories.find(c => c.id === task.category)?.name || task.category}</span>
-                                  </Badge>
+                    {/* Активные задачи */}
+                    {tasks.filter(t => t.status !== 'completed').map((task, index) => {
+                      // Показываем title или первую строку description
+                      const taskTitle = task.title || task.description?.split('\n')[0] || 'Задача'
+                      const taskDesc = task.title && task.description ? task.description : null
+
+                      return (
+                        <Card
+                          key={task.id || `task-${index}`}
+                          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden hover:shadow-md transition-shadow"
+                        >
+                          <CardContent className="p-4">
+                            {/* Заголовок и бейджи */}
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-base text-slate-900 dark:text-white truncate">
+                                  {taskTitle}
+                                </h4>
+                                {taskDesc && (
+                                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                                    {taskDesc}
+                                  </p>
                                 )}
                               </div>
-                              <div className="flex items-center gap-1 bg-amber-500/20 px-2 py-1 rounded-full">
-                                <Zap className="w-3.5 h-3.5 text-amber-500" />
-                                <span className="text-xs font-bold text-amber-600">+{task.points} XP</span>
+                              {/* XP бейдж */}
+                              <div className="shrink-0 flex items-center gap-1 bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-1 rounded-lg">
+                                <Zap className="w-4 h-4" />
+                                <span className="text-sm font-bold">{task.points}</span>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Основное содержимое */}
-                          <div className="p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-base mb-1">{task.title}</p>
-                                {task.description && (
-                                  <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{task.description}</p>
-                                )}
-                                {task.reminderTime && (
-                                  <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 w-fit px-2 py-1 rounded-full">
-                                    <Bell className="w-3.5 h-3.5" />
-                                    <span>
-                                      {new Date(task.reminderTime).toLocaleString('ru-RU', {
-                                        day: 'numeric',
-                                        month: 'short',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        timeZone: 'Europe/Moscow'
-                                      })}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
+                            {/* Мета-информация */}
+                            <div className="flex flex-wrap items-center gap-2 mb-4">
+                              {task.priority === 'high' && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400">
+                                  🔴 Важная
+                                </span>
+                              )}
+                              {task.priority === 'medium' && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400">
+                                  🟡 Средняя
+                                </span>
+                              )}
+                              {task.priority === 'low' && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-400">
+                                  🟢 Низкая
+                                </span>
+                              )}
+                              {task.category && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                  {categoryIcons[task.category]}
+                                  <span>{categories.find(c => c.id === task.category)?.name || task.category}</span>
+                                </span>
+                              )}
+                              {task.reminderTime && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                                  <Bell className="w-3 h-3" />
+                                  {new Date(task.reminderTime).toLocaleString('ru-RU', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Кнопки действий */}
+                            <div className="flex gap-2">
                               <Button
-                                variant="ghost"
+                                onClick={() => handleToggleTask(task)}
+                                className="flex-1 h-10 bg-green-500 hover:bg-green-600 text-white gap-2"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                Выполнено
+                              </Button>
+                              <Button
+                                variant="outline"
                                 size="icon"
-                                className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="shrink-0 h-10 w-10 text-slate-400 hover:text-red-500 hover:border-red-300"
                                 onClick={() => handleDeleteTask(task.id)}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
-                          </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
 
-                          {/* Кнопка выполнения */}
-                          <div className="px-4 pb-4">
-                            <Button
-                              onClick={() => handleToggleTask(task)}
-                              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white h-11 gap-2 shadow-md hover:shadow-lg transition-all"
-                            >
-                              <CheckCircle2 className="w-5 h-5" />
-                              <span className="font-semibold">Выполнено</span>
-                              <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                                +{task.points} XP
-                              </span>
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-
+                    {/* Выполненные задачи */}
                     {tasks.filter(t => t.status === 'completed').length > 0 && (
-                      <div key="completed-section">
-                        <div className="flex items-center gap-2 mt-6 mb-3 px-1">
-                          <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          </div>
-                          <p className="text-sm font-semibold text-green-600">Выполненные задачи</p>
-                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                            {tasks.filter(t => t.status === 'completed').length} шт
+                      <div className="mt-6">
+                        <div className="flex items-center gap-2 mb-3 px-1">
+                          <CheckCircle2 className="w-5 h-5 text-green-500" />
+                          <span className="font-medium text-green-600 dark:text-green-400">
+                            Выполнено
+                          </span>
+                          <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                            {tasks.filter(t => t.status === 'completed').length}
                           </span>
                         </div>
-                        {tasks.filter(t => t.status === 'completed').map((task, index) => (
-                          <Card key={task.id || `completed-${index}`} className="mb-2 border-green-500/20 bg-green-500/5">
-                            <CardContent className="p-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shrink-0">
-                                  <CheckCircle2 className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium line-through text-muted-foreground">{task.title}</p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <Badge className="bg-green-500/20 text-green-600 text-xs gap-1">
-                                      <Zap className="w-3 h-3" />
-                                      +{task.points} XP получено
-                                    </Badge>
+
+                        {tasks.filter(t => t.status === 'completed').map((task, index) => {
+                          const taskTitle = task.title || task.description?.split('\n')[0] || 'Задача'
+
+                          return (
+                            <Card
+                              key={task.id || `completed-${index}`}
+                              className="mb-2 bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/20"
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                                    <CheckCircle2 className="w-4 h-4 text-white" />
                                   </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-slate-500 dark:text-slate-400 line-through truncate">
+                                      {taskTitle}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                        +{task.points} XP получено
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-slate-400 hover:text-slate-600"
+                                    onClick={() => handleToggleTask(task)}
+                                  >
+                                    Вернуть
+                                  </Button>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-muted-foreground hover:text-primary"
-                                  onClick={() => handleToggleTask(task)}
-                                >
-                                  Вернуть
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </CardContent>
+                            </Card>
+                          )
+                        })}
                       </div>
                     )}
                   </>
