@@ -74,17 +74,27 @@ export async function GET(request: NextRequest) {
 // POST - выдача подписки вручную
 export async function POST(request: NextRequest) {
   try {
+    console.log('[Admin Subscriptions] POST request received')
+    
     const admin = await getCurrentAdmin()
+    console.log('[Admin Subscriptions] Admin:', admin)
+    
     if (!admin) {
+      console.log('[Admin Subscriptions] Unauthorized - no admin')
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
     const body = await request.json()
+    console.log('[Admin Subscriptions] Request body:', body)
+    
     const { action, userId, plan, subscriptionId, reason } = body
 
     // Выдать подписку
     if (action === 'grant') {
+      console.log('[Admin Subscriptions] Granting subscription:', { userId, plan, reason })
+      
       if (!userId || !plan) {
+        console.log('[Admin Subscriptions] Missing userId or plan')
         return NextResponse.json(
           { error: 'userId и plan обязательны' },
           { status: 400 }
@@ -95,6 +105,8 @@ export async function POST(request: NextRequest) {
       const user = await db.user.findUnique({
         where: { id: userId }
       })
+      
+      console.log('[Admin Subscriptions] Found user:', user ? user.id : 'NOT FOUND')
 
       if (!user) {
         return NextResponse.json(
@@ -103,12 +115,15 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      console.log('[Admin Subscriptions] Calling grantSubscription...')
       const subscription = await grantSubscription({
         userId,
         plan,
         adminId: admin.id,
         reason
       })
+      
+      console.log('[Admin Subscriptions] Subscription created:', subscription)
 
       // Логируем действие
       await logAdminAction(
@@ -119,6 +134,7 @@ export async function POST(request: NextRequest) {
         { userId, plan, reason }
       )
 
+      console.log('[Admin Subscriptions] Success!')
       return NextResponse.json({
         success: true,
         subscription,
