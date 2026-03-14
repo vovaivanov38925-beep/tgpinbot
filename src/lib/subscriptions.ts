@@ -79,8 +79,8 @@ export async function createSubscription(params: {
 
   await db.$executeRaw`
     INSERT INTO subscriptions (
-      id, user_id, plan, status, provider, transaction_id,
-      amount, currency, started_at, expires_at, granted_by, metadata
+      id, "userId", plan, status, provider, "transactionId",
+      amount, currency, "startedAt", "expiresAt", "grantedBy", metadata
     ) VALUES (
       ${id}, ${userId}, ${plan}, ${'active'}, ${provider}, ${transactionId},
       ${amount}, ${currency}, ${now}, ${expiresAt}, ${grantedBy}, ${metadata ? JSON.stringify(metadata) : null}
@@ -116,10 +116,10 @@ export async function getActiveSubscription(userId: string): Promise<Subscriptio
 
   const results = await db.$queryRaw<any[]>`
     SELECT * FROM subscriptions
-    WHERE user_id = ${userId}
+    WHERE "userId" = ${userId}
       AND status = ${'active'}
-      AND (expires_at IS NULL OR expires_at > ${now})
-    ORDER BY created_at DESC
+      AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
+    ORDER BY "createdAt" DESC
     LIMIT 1
   `
 
@@ -134,8 +134,8 @@ export async function getActiveSubscription(userId: string): Promise<Subscriptio
 export async function getUserSubscriptions(userId: string): Promise<SubscriptionData[]> {
   const results = await db.$queryRaw<any[]>`
     SELECT * FROM subscriptions
-    WHERE user_id = ${userId}
-    ORDER BY created_at DESC
+    WHERE "userId" = ${userId}
+    ORDER BY "createdAt" DESC
   `
 
   return results.map(mapRowToSubscription)
@@ -149,9 +149,9 @@ export async function updateUserPremiumStatus(userId: string): Promise<void> {
 
   await db.$executeRaw`
     UPDATE users
-    SET is_premium = ${!!activeSubscription},
-        premium_expiry = ${activeSubscription?.expiresAt || null},
-        updated_at = ${new Date()}
+    SET "isPremium" = ${!!activeSubscription},
+        "premiumExpiry" = ${activeSubscription?.expiresAt || null},
+        "updatedAt" = ${new Date()}
     WHERE id = ${userId}
   `
 }
@@ -203,20 +203,20 @@ export async function revokeSubscription(params: {
   await db.$executeRaw`
     UPDATE subscriptions
     SET status = ${'cancelled'},
-        cancelled_at = ${now},
-        cancelled_reason = ${reason || `Revoked by admin ${adminId}`},
-        updated_at = ${now}
+        "cancelledAt" = ${now},
+        "cancelledReason" = ${reason || `Revoked by admin ${adminId}`},
+        "updatedAt" = ${now}
     WHERE id = ${subscriptionId}
   `
 
   // Обновляем статус пользователя
-  await updateUserPremiumStatus(subscription.user_id)
+  await updateUserPremiumStatus(subscription.userId)
 
   return mapRowToSubscription({
     ...subscription,
     status: 'cancelled',
-    cancelled_at: now,
-    cancelled_reason: reason || `Revoked by admin ${adminId}`
+    cancelledAt: now,
+    cancelledReason: reason || `Revoked by admin ${adminId}`
   })
 }
 
@@ -228,20 +228,20 @@ export async function checkExpiredSubscriptions(): Promise<number> {
 
   // Находим истекшие
   const expired = await db.$queryRaw<any[]>`
-    SELECT id, user_id FROM subscriptions
+    SELECT id, "userId" FROM subscriptions
     WHERE status = ${'active'}
-      AND expires_at IS NOT NULL
-      AND expires_at < ${now}
+      AND "expiresAt" IS NOT NULL
+      AND "expiresAt" < ${now}
   `
 
   // Обновляем каждую
   for (const sub of expired) {
     await db.$executeRaw`
       UPDATE subscriptions
-      SET status = ${'expired'}, updated_at = ${now}
+      SET status = ${'expired'}, "updatedAt" = ${now}
       WHERE id = ${sub.id}
     `
-    await updateUserPremiumStatus(sub.user_id)
+    await updateUserPremiumStatus(sub.userId)
   }
 
   return expired.length
@@ -270,7 +270,7 @@ export async function getSubscriptionsStats(): Promise<{
       plan,
       provider,
       amount,
-      created_at
+      "createdAt"
     FROM subscriptions
   `
 
@@ -296,7 +296,7 @@ export async function getSubscriptionsStats(): Promise<{
 
     if (row.provider !== 'manual' && row.amount) {
       totalRevenue += row.amount
-      const createdAt = new Date(row.created_at)
+      const createdAt = new Date(row.createdAt)
       if (createdAt >= startOfMonth) monthRevenue += row.amount
       if (createdAt >= startOfYear) yearRevenue += row.amount
     }
@@ -335,7 +335,6 @@ export async function getSubscriptionsPaginated(params: {
 }> {
   const { page = 1, limit = 20, status, plan, provider, search } = params
 
-  // Простой запрос без фильтров для начала
   const offset = (page - 1) * limit
 
   let whereConditions = 'WHERE 1=1'
@@ -355,25 +354,25 @@ export async function getSubscriptionsPaginated(params: {
     queryParams.push(provider)
   }
   if (search) {
-    whereConditions += ` AND (u.telegram_id ILIKE $${paramIndex} OR u.username ILIKE $${paramIndex} OR u.first_name ILIKE $${paramIndex})`
+    whereConditions += ` AND (u."telegramId" ILIKE $${paramIndex} OR u.username ILIKE $${paramIndex} OR u."firstName" ILIKE $${paramIndex})`
     queryParams.push(`%${search}%`)
     paramIndex++
   }
 
   // Получаем общее количество
   const countResult = await db.$queryRawUnsafe<any[]>(
-    `SELECT COUNT(*) as count FROM subscriptions s JOIN users u ON s.user_id = u.id ${whereConditions}`,
+    `SELECT COUNT(*) as count FROM subscriptions s JOIN users u ON s."userId" = u.id ${whereConditions}`,
     ...queryParams
   )
   const total = Number(countResult[0]?.count || 0)
 
   // Получаем записи
   const results = await db.$queryRawUnsafe<any[]>(
-    `SELECT s.*, u.id as user_id, u.telegram_id, u.username, u.first_name, u.last_name, u.photo_url, u.is_premium
+    `SELECT s.*, u.id as user_id, u."telegramId", u.username, u."firstName", u."lastName", u."photoUrl", u."isPremium"
      FROM subscriptions s
-     JOIN users u ON s.user_id = u.id
+     JOIN users u ON s."userId" = u.id
      ${whereConditions}
-     ORDER BY s.created_at DESC
+     ORDER BY s."createdAt" DESC
      LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
     ...queryParams, limit, offset
   )
@@ -382,12 +381,12 @@ export async function getSubscriptionsPaginated(params: {
     ...mapRowToSubscription(row),
     user: {
       id: row.user_id,
-      telegramId: row.telegram_id,
+      telegramId: row.telegramId,
       username: row.username,
-      firstName: row.first_name,
-      lastName: row.last_name,
-      photoUrl: row.photo_url,
-      isPremium: row.is_premium
+      firstName: row.firstName,
+      lastName: row.lastName,
+      photoUrl: row.photoUrl,
+      isPremium: row.isPremium
     }
   }))
 
@@ -405,20 +404,20 @@ export async function getSubscriptionsPaginated(params: {
 function mapRowToSubscription(row: any): SubscriptionData {
   return {
     id: row.id,
-    userId: row.user_id,
+    userId: row.userId,
     plan: row.plan,
     status: row.status,
     provider: row.provider,
-    transactionId: row.transaction_id,
+    transactionId: row.transactionId,
     amount: row.amount,
     currency: row.currency,
-    startedAt: row.started_at,
-    expiresAt: row.expires_at,
-    cancelledAt: row.cancelled_at,
-    cancelledReason: row.cancelled_reason,
+    startedAt: row.startedAt,
+    expiresAt: row.expiresAt,
+    cancelledAt: row.cancelledAt,
+    cancelledReason: row.cancelledReason,
     metadata: row.metadata,
-    grantedBy: row.granted_by,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
+    grantedBy: row.grantedBy,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
   }
 }

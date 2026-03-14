@@ -92,9 +92,9 @@ async function sendMessageAndSave(
   if (messageId && telegramUserId) {
     try {
       await db.$executeRaw`
-        INSERT INTO bot_messages (id, telegram_id, chat_id, message_id, created_at)
+        INSERT INTO bot_messages (id, "telegramId", "chatId", "messageId", "createdAt")
         VALUES (gen_random_uuid(), ${String(telegramUserId)}, ${String(chatId)}, ${messageId}, NOW())
-        ON CONFLICT (chat_id, message_id) DO NOTHING
+        ON CONFLICT ("chatId", "messageId") DO NOTHING
       `
     } catch (error) {
       console.log('Failed to save message ID:', error)
