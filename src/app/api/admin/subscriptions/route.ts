@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
+import { getCurrentAdmin, logAdminAction } from '@/lib/admin-auth'
 import {
   getSubscriptionsPaginated,
   getSubscriptionsStats,
@@ -10,34 +10,12 @@ import {
   checkExpiredSubscriptions
 } from '@/lib/subscriptions'
 
-// Проверка авторизации админа
-async function checkAdminAuth() {
-  const cookieStore = await cookies()
-  const adminSession = cookieStore.get('admin_session')
-
-  if (!adminSession?.value) {
-    return null
-  }
-
-  try {
-    const admin = await db.admin.findFirst({
-      where: {
-        username: adminSession.value,
-        isActive: true
-      }
-    })
-    return admin
-  } catch {
-    return null
-  }
-}
-
 // GET - получение списка подписок или статистики
 export async function GET(request: NextRequest) {
   try {
-    const admin = await checkAdminAuth()
+    const admin = await getCurrentAdmin()
     if (!admin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
     const searchParams = request.nextUrl.searchParams
@@ -96,9 +74,9 @@ export async function GET(request: NextRequest) {
 // POST - выдача подписки вручную
 export async function POST(request: NextRequest) {
   try {
-    const admin = await checkAdminAuth()
+    const admin = await getCurrentAdmin()
     if (!admin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
     const body = await request.json()
@@ -133,19 +111,13 @@ export async function POST(request: NextRequest) {
       })
 
       // Логируем действие
-      await db.adminLog.create({
-        data: {
-          adminId: admin.id,
-          action: 'grant_subscription',
-          entityType: 'subscription',
-          entityId: subscription.id,
-          details: JSON.stringify({
-            userId,
-            plan,
-            reason
-          })
-        }
-      })
+      await logAdminAction(
+        admin.id,
+        'grant_subscription',
+        'subscription',
+        subscription.id,
+        { userId, plan, reason }
+      )
 
       return NextResponse.json({
         success: true,
@@ -170,18 +142,13 @@ export async function POST(request: NextRequest) {
       })
 
       // Логируем действие
-      await db.adminLog.create({
-        data: {
-          adminId: admin.id,
-          action: 'revoke_subscription',
-          entityType: 'subscription',
-          entityId: subscriptionId,
-          details: JSON.stringify({
-            userId: subscription.userId,
-            reason
-          })
-        }
-      })
+      await logAdminAction(
+        admin.id,
+        'revoke_subscription',
+        'subscription',
+        subscriptionId,
+        { userId: subscription.userId, reason }
+      )
 
       return NextResponse.json({
         success: true,
