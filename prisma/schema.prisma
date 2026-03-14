@@ -1,0 +1,460 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  telegramId     String   @unique
+  telegramChatId String?  @unique // Для отправки уведомлений ботом
+  username       String?
+  firstName      String?
+  lastName       String?
+  photoUrl       String?
+  points         Int      @default(0)
+  level          Int      @default(1)
+  isPremium      Boolean  @default(false)
+  premiumExpiry  DateTime?
+  botState       String?  // Текущее состояние бота (например, "support:waiting")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  pins               Pin[]
+  tasks              Task[]
+  achievements       UserAchievement[]
+  notificationSettings NotificationSettings?
+  pinterestBoards    PinterestBoard[]
+  supportTickets     SupportTicket[]
+  scraperTasks       ScraperTask[]
+
+  @@map("users")
+}
+
+model NotificationSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+
+  // Основные уведомления
+  taskReminders         Boolean  @default(true)    // Напоминания о задачах
+  newPins               Boolean  @default(true)    // Уведомления о новых пинах
+  achievements          Boolean  @default(true)    // Уведомления о достижениях
+  levelUp               Boolean  @default(true)    // Уведомления о повышении уровня
+  taskCompleted         Boolean  @default(true)    // Уведомления о выполнении задач
+
+  // Премиум напоминания (только для premium)
+  reminderDayBefore     Boolean  @default(false)   // Напоминание за день
+  reminderHourBefore    Boolean  @default(false)   // Напоминание за час
+  reminder15MinBefore   Boolean  @default(false)   // Напоминание за 15 минут
+
+  // Время тихого режима
+  quietHoursStart       Int      @default(22)      // Начало тихого режима (час)
+  quietHoursEnd         Int      @default(8)       // Конец тихого режима (час)
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
+}
+
+model Pin {
+  id           String   @id @default(cuid())
+  userId       String
+  imageUrl     String
+  title        String?
+  description  String?
+  category     String?
+  sourceUrl    String?
+  boardUrl     String?  // URL доски Pinterest с которой пришел пин
+  isCompleted  Boolean  @default(false)
+  points       Int      @default(10)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks        Task[]
+
+  @@index([boardUrl])
+  @@map("pins")
+}
+
+model Task {
+  id            String   @id @default(cuid())
+  userId        String
+  pinId         String?
+  title         String
+  description   String?
+  category      String?
+  priority      String   @default("medium") // low, medium, high
+  status        String   @default("pending") // pending, in_progress, completed
+  dueDate       DateTime?
+  reminderTime  DateTime?   // Когда напомнить
+  reminderSent  Boolean  @default(false) // Напоминание отправлено?
+  points        Int      @default(5)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pin           Pin?     @relation(fields: [pinId], references: [id], onDelete: SetNull)
+  
+  @@map("tasks")
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  category    String   // pins, tasks, social, premium
+  requirement Int      // Number needed to unlock
+  points      Int      // Points awarded for achievement
+  createdAt   DateTime @default(now())
+  
+  userAchievements UserAchievement[]
+  
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id             String   @id @default(cuid())
+  userId         String
+  achievementId  String
+  unlockedAt     DateTime @default(now())
+  
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement    Achievement  @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// Admin Panel Models
+model Admin {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  email        String?  @unique
+  role         String   @default("admin") // admin, superadmin
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  logs         AdminLog[]
+  
+  @@map("admins")
+}
+
+model AdminLog {
+  id          String   @id @default(cuid())
+  adminId     String
+  action      String   // login, logout, create_user, delete_pin, etc.
+  entityType  String?  // user, pin, task, payment
+  entityId    String?
+  details     String?  // JSON with additional info
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  admin       Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("admin_logs")
+}
+
+model PaymentSettings {
+  id                    String   @id @default(cuid())
+  
+  // Telegram Stars
+  starsEnabled          Boolean  @default(false)
+  starsMonthPrice       Int      @default(299)
+  starsYearPrice        Int      @default(1999)
+  starsLifetimePrice    Int      @default(4999)
+  
+  // YooKassa
+  yookassaEnabled       Boolean  @default(false)
+  yookassaShopId        String?
+  yookassaSecretKey     String?
+  yookassaMonthPrice    Int      @default(299)
+  yookassaYearPrice     Int      @default(1999)
+  yookassaLifetimePrice Int      @default(4999)
+  
+  // General
+  currency              String   @default("RUB")
+  trialDays             Int      @default(7)
+  
+  updatedAt             DateTime @updatedAt
+  
+  @@map("payment_settings")
+}
+
+model PaymentTransaction {
+  id              String   @id @default(cuid())
+  userId          String
+  amount          Int
+  currency        String   @default("RUB")
+  status          String   @default("pending") // pending, completed, failed, refunded
+  provider        String   // yookassa, telegram_stars
+  providerTxId    String?  @unique // Transaction ID from provider
+  planType        String   // month, year, lifetime
+  metadata        String?  // JSON
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("payment_transactions")
+}
+
+model AppSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+  
+  @@map("app_settings")
+}
+
+model BotLog {
+  id          String   @id @default(cuid())
+  level       String   // info, warning, error, debug
+  source      String   // telegram, api, database, scheduler, payment
+  message     String
+  details     String?  // JSON with additional info
+  userId      String?
+  telegramId  String?
+  requestId   String?
+  duration    Int?     // milliseconds
+  createdAt   DateTime @default(now())
+
+  @@index([level])
+  @@index([source])
+  @@index([createdAt])
+  @@index([telegramId])
+  @@map("bot_logs")
+}
+
+// Pinterest Board Sync
+model PinterestBoard {
+  id              String   @id @default(cuid())
+  userId          String
+  boardUrl        String   // URL доски Pinterest
+  boardName       String?  // Название доски
+  boardUsername   String?  // Username владельца доски
+  lastSyncAt      DateTime? // Последняя синхронизация
+  totalPins       Int      @default(0) // Всего пинов при последней синхронизации
+  newPins         Int      @default(0) // Новых пинов при последней синхронизации
+  isActive        Boolean  @default(true) // Активна ли синхронизация
+  autoSync        Boolean  @default(false) // Автоматическая синхронизация
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, boardUrl])
+  @@index([userId])
+  @@index([boardUrl])
+  @@map("pinterest_boards")
+}
+
+// Рекламные интеграции
+model Ad {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   // Текст рекламы (HTML)
+  imageUrl    String?  // Картинка (опционально)
+  linkUrl     String?  // Ссылка (опционально)
+  buttonText  String?  // Текст кнопки
+
+  // Таргетинг
+  targetAll       Boolean  @default(true)   // Всем пользователям
+  targetPremium   Boolean  @default(false)  // Только премиум
+  targetFree      Boolean  @default(false)  // Только бесплатные
+
+  // Статус
+  status      String   @default("draft") // draft, scheduled, active, completed, paused
+  scheduledAt DateTime? // Когда запланирована публикация
+
+  // Статистика
+  sentCount   Int      @default(0)  // Количество отправок
+  clickCount  Int      @default(0)  // Количество кликов
+
+  createdBy   String?  // ID админа
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("ads")
+}
+
+// Рассылки
+model Broadcast {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   // Текст рассылки (HTML)
+  imageUrl    String?  // Картинка (опционально)
+
+  // Таргетинг
+  targetAll       Boolean  @default(true)   // Всем пользователям
+  targetPremium   Boolean  @default(false)  // Только премиум
+  targetFree      Boolean  @default(false)  // Только бесплатные
+
+  // Статус
+  status      String   @default("draft") // draft, sending, sent, failed
+  scheduledAt DateTime? // Когда запланирована рассылка
+  startedAt   DateTime? // Когда началась рассылка
+  completedAt DateTime? // Когда завершилась
+
+  // Статистика
+  totalRecipients  Int  @default(0)  // Всего получателей
+  sentCount        Int  @default(0)  // Успешно отправлено
+  failedCount      Int  @default(0)  // Ошибок
+
+  createdBy   String?  // ID админа
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Детали отправки
+  broadcastLogs BroadcastLog[]
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("broadcasts")
+}
+
+// Логи рассылок (для отслеживания отправки каждому пользователю)
+model BroadcastLog {
+  id            String   @id @default(cuid())
+  broadcastId   String
+  userId        String
+  telegramId    String
+  status        String   @default("pending") // pending, sent, failed
+  error         String?
+  sentAt        DateTime?
+
+  broadcast     Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, userId])
+  @@index([broadcastId])
+  @@index([status])
+  @@map("broadcast_logs")
+}
+
+// Система поддержки
+model SupportTicket {
+  id              String   @id @default(cuid())
+  userId          String
+  telegramId      String
+  chatId          String   // Telegram chat ID для ответов
+
+  // Информация о тикете
+  subject         String?  // Тема (опционально)
+  category        String   @default("general") // general, bug, feature, payment, other
+  priority        String   @default("normal") // low, normal, high, urgent
+
+  // Статус
+  status          String   @default("open") // open, in_progress, waiting_user, resolved, closed
+
+  // Метаданные
+  firstMessage    String   // Первое сообщение пользователя
+  lastMessage     String?  // Последнее сообщение в переписке
+  lastMessageAt   DateTime? // Время последнего сообщения
+  lastMessageFrom String?  // Кто отправил последнее сообщение (user/admin)
+
+  // Временные метки
+  assignedTo      String?  // ID админа, который взял тикет
+  assignedAt      DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Связи
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages        SupportMessage[]
+
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+// Сообщения в тикетах поддержки
+model SupportMessage {
+  id          String   @id @default(cuid())
+  ticketId    String
+  senderType  String   // user, admin, bot
+  senderId    String?  // ID админа если отправитель админ
+  senderName  String?  // Имя отправителя
+
+  message     String   // Текст сообщения (HTML)
+  isRead      Boolean  @default(false) // Прочитано ли получателем
+  readAt      DateTime?
+
+  // Вложения (опционально)
+  attachments String?  // JSON массив URL вложений
+
+  createdAt   DateTime @default(now())
+
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("support_messages")
+}
+
+// Сообщения бота для возможности очистки чата
+model BotMessage {
+  id          String   @id @default(cuid())
+  telegramId  String   // Telegram ID пользователя
+  chatId      String   // Chat ID (обычно совпадает с telegramId в личке)
+  messageId   Int      // ID сообщения в Telegram
+
+  createdAt   DateTime @default(now())
+
+  @@unique([chatId, messageId])
+  @@index([telegramId])
+  @@index([chatId])
+  @@map("bot_messages")
+}
+
+// Задачи для парсинга Pinterest (обрабатываются Python скриптом на ПК)
+model ScraperTask {
+  id              String   @id @default(cuid())
+  userId          String
+  boardUrl        String   // URL доски Pinterest
+  
+  // Статус
+  status          String   @default("pending") // pending, processing, completed, failed
+  
+  // Результат
+  totalPins       Int      @default(0)
+  importedPins    Int      @default(0)
+  errorMessage    String?
+  
+  // Время
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("scraper_tasks")
+}
