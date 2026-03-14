@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userId, pinId, title, description, category, priority, dueDate, reminderTime } = body
+    const { userId, pinId, title, description, imageUrl, category, priority, dueDate, reminderTime } = body
 
     if (!userId || !title) {
       return NextResponse.json({ error: 'User ID and title are required' }, { status: 400 })
@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
         pinId: pinId || null,
         title,
         description: description || null,
+        imageUrl: imageUrl || null,
         category: category || null,
         priority: priority || 'medium',
         dueDate: dueDate ? new Date(dueDate) : null,

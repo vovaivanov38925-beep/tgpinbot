@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendTelegramMessage } from '@/lib/telegram'
+import { sendTelegramMessage, sendTelegramPhoto } from '@/lib/telegram'
 import { logger } from '@/lib/logger'
 
 // Secret key for endpoint protection
@@ -102,7 +102,7 @@ async function processMainReminders(now: Date): Promise<ReminderResult[]> {
           })}`
         : ''
 
-      const text = `⏰ <b>Напоминание о задаче</b>
+      const caption = `⏰ <b>Напоминание о задаче</b>
 
 <b>${escapeHtml(task.title)}</b>${task.description ? `\n${escapeHtml(task.description.substring(0, 100))}${task.description.length > 100 ? '...' : ''}` : ''}
 
@@ -110,11 +110,18 @@ ${timeLabel}
 
 👉 <a href="https://t.me/PinToActionBot?startapp=1">Открыть приложение</a>`
 
-      const result = await sendTelegramMessage({ chat_id: chatId, text })
+      let result
+      
+      // Если есть изображение - отправляем фото
+      if (task.imageUrl) {
+        result = await sendTelegramPhoto(chatId, task.imageUrl, caption)
+      } else {
+        result = await sendTelegramMessage({ chat_id: chatId, text: caption })
+      }
 
       if (result.ok) {
         results.push({ taskId: task.id, sent: true, type: 'main' })
-        await logger.info('scheduler', 'Main reminder sent', { taskId: task.id, chatId })
+        await logger.info('scheduler', 'Main reminder sent', { taskId: task.id, chatId, hasImage: !!task.imageUrl })
       } else {
         results.push({ taskId: task.id, sent: false, type: 'main', error: result.description })
       }

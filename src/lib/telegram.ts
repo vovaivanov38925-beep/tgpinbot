@@ -61,6 +61,39 @@ export async function sendTelegramMessage(message: TelegramMessage): Promise<Tel
 }
 
 /**
+ * Отправить фото с подписью через Telegram Bot API
+ */
+export async function sendTelegramPhoto(
+  chatId: string | number,
+  photoUrl: string,
+  caption: string
+): Promise<TelegramResponse> {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        photo: photoUrl,
+        caption: caption,
+        parse_mode: 'HTML',
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!data.ok) {
+      console.error('Telegram sendPhoto error:', data.description)
+    }
+
+    return data
+  } catch (error) {
+    console.error('Failed to send Telegram photo:', error)
+    return { ok: false, description: String(error) }
+  }
+}
+
+/**
  * Главное меню бота (Reply Keyboard)
  */
 export function getMainKeyboard() {

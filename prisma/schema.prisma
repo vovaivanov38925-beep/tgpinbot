@@ -92,6 +92,7 @@ model Task {
   pinId         String?
   title         String
   description   String?
+  imageUrl      String?  // Изображение из пина для превью
   category      String?
   priority      String   @default("medium") // low, medium, high
   status        String   @default("pending") // pending, in_progress, completed

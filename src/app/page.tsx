@@ -1029,12 +1029,25 @@ export default function PinterestApp() {
                 ) : (
                   <>
                     {tasks.filter(t => t.status !== 'completed').map((task, index) => (
-                      <Card key={task.id || `task-${index}`} className="border-lavender/20 hover:shadow-lavender transition-all duration-300">
+                      <Card key={task.id || `task-${index}`} className="border-lavender/20 hover:shadow-lavender transition-all duration-300 overflow-hidden">
                         <CardContent className="p-4">
                           <div className="flex items-start gap-3">
+                            {/* Изображение задачи если есть */}
+                            {task.imageUrl && (
+                              <div className="w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-muted">
+                                <img
+                                  src={task.imageUrl}
+                                  alt={task.title}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none'
+                                  }}
+                                />
+                              </div>
+                            )}
                             <button
                               onClick={() => handleToggleTask(task)}
-                              className="mt-1 text-muted-foreground hover:text-primary transition-colors"
+                              className="mt-1 text-muted-foreground hover:text-primary transition-colors shrink-0"
                             >
                               <Circle className="w-5 h-5" />
                             </button>
@@ -1079,7 +1092,7 @@ export default function PinterestApp() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-muted-foreground hover:text-destructive"
+                              className="text-muted-foreground hover:text-destructive shrink-0"
                               onClick={() => handleDeleteTask(task.id)}
                             >
                               <Trash2 className="w-4 h-4" />
