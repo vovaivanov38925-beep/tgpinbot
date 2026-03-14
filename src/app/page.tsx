@@ -323,6 +323,15 @@ export default function PinterestApp() {
   }>({ stars: null, ton: null, tonEnabled: false, starsEnabled: true })
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
 
+  // TON payment state
+  const [tonPayment, setTonPayment] = useState<{
+    transactionId: string
+    priceTon: number
+    walletAddress: string
+    comment: string
+  } | null>(null)
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false)
+
   // Load prices on mount
   useEffect(() => {
     const loadPrices = async () => {
@@ -404,10 +413,13 @@ export default function PinterestApp() {
             window.open(data.httpsLink, '_blank')
           }
 
-          showNotification(
-            `Отправьте ${data.priceTon} TON на кошелёк. После оплаты нажмите "Проверить оплату".`,
-            'Оплата TON'
-          )
+          // Сохраняем данные платежа для проверки
+          setTonPayment({
+            transactionId: data.transactionId,
+            priceTon: data.priceTon,
+            walletAddress: data.walletAddress,
+            comment: data.comment
+          })
         } else {
           showNotification(data.error || 'Ошибка создания счёта TON')
         }
@@ -418,6 +430,32 @@ export default function PinterestApp() {
       showNotification('Ошибка при обработке платежа')
       setIsProcessingPayment(false)
     }
+  }
+
+  // Проверка TON оплаты
+  const handleCheckTonPayment = async () => {
+    if (!tonPayment) return
+
+    setIsCheckingPayment(true)
+    try {
+      const res = await fetch(`/api/payments/ton?transactionId=${tonPayment.transactionId}`)
+      const data = await res.json()
+
+      if (data.status === 'completed') {
+        showNotification('Оплата подтверждена! Вы теперь Premium!', 'Успешно')
+        setTonPayment(null)
+        // Обновляем пользователя
+        if (user) {
+          setUser({ ...user, isPremium: true })
+        }
+      } else {
+        showNotification(data.message || 'Оплата пока не найдена. Попробуйте через минуту.')
+      }
+    } catch (error) {
+      console.error('Error checking payment:', error)
+      showNotification('Ошибка проверки оплаты')
+    }
+    setIsCheckingPayment(false)
   }
 
   // Initialize data
@@ -1853,6 +1891,72 @@ export default function PinterestApp() {
                   Добавить к моим доскам
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* TON Payment Dialog */}
+      <Dialog open={!!tonPayment} onOpenChange={(open) => !open && setTonPayment(null)}>
+        <DialogContent className="sm:max-w-[400px] max-w-[calc(100vw-32px)] w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Diamond className="w-5 h-5 text-blue-400" />
+              Оплата TON
+            </DialogTitle>
+            <DialogDescription>
+              Отправьте TON на кошелёк и проверьте оплату
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-4 space-y-3">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Сумма к оплате:</p>
+                <p className="text-2xl font-bold text-blue-500">{tonPayment?.priceTon} TON</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Кошелёк для оплаты:</p>
+                <p className="text-xs font-mono bg-white dark:bg-slate-900 p-2 rounded break-all">
+                  {tonPayment?.walletAddress}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Комментарий (обязательно!):</p>
+                <p className="text-sm font-mono bg-amber-100 dark:bg-amber-900/30 p-2 rounded text-amber-700 dark:text-amber-300">
+                  {tonPayment?.comment}
+                </p>
+              </div>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                ⚠️ <strong>Важно:</strong> При отправке TON укажите комментарий <strong>{tonPayment?.comment}</strong> — это нужно для идентификации вашего платежа.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="flex-col gap-2">
+            <Button
+              onClick={handleCheckTonPayment}
+              disabled={isCheckingPayment}
+              className="w-full bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white"
+            >
+              {isCheckingPayment ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Проверка...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Проверить оплату
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setTonPayment(null)}
+              className="w-full"
+            >
+              Отмена
             </Button>
           </DialogFooter>
         </DialogContent>
