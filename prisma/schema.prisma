@@ -11,20 +11,20 @@ datasource db {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  telegramId     String   @unique
-  telegramChatId String?  @unique // Для отправки уведомлений ботом
-  username       String?
-  firstName      String?
-  lastName       String?
-  photoUrl       String?
-  points         Int      @default(0)
-  level          Int      @default(1)
-  isPremium      Boolean  @default(false)
-  premiumExpiry  DateTime?
-  botState       String?  // Текущее состояние бота (например, "support:waiting")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id             String   @id @default(cuid()) @map("id")
+  telegramId     String   @unique @map("telegram_id")
+  telegramChatId String?  @unique @map("telegram_chat_id")
+  username       String?  @map("username")
+  firstName      String?  @map("first_name")
+  lastName       String?  @map("last_name")
+  photoUrl       String?  @map("photo_url")
+  points         Int      @default(0) @map("points")
+  level          Int      @default(1) @map("level")
+  isPremium      Boolean  @default(false) @map("is_premium")
+  premiumExpiry  DateTime? @map("premium_expiry")
+  botState       String?  @map("bot_state")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   pins               Pin[]
   tasks              Task[]
@@ -39,27 +39,24 @@ model User {
 }
 
 model NotificationSettings {
-  id                    String   @id @default(cuid())
-  userId                String   @unique
+  id                    String   @id @default(cuid()) @map("id")
+  userId                String   @unique @map("user_id")
 
-  // Основные уведомления
-  taskReminders         Boolean  @default(true)    // Напоминания о задачах
-  newPins               Boolean  @default(true)    // Уведомления о новых пинах
-  achievements          Boolean  @default(true)    // Уведомления о достижениях
-  levelUp               Boolean  @default(true)    // Уведомления о повышении уровня
-  taskCompleted         Boolean  @default(true)    // Уведомления о выполнении задач
+  taskReminders         Boolean  @default(true) @map("task_reminders")
+  newPins               Boolean  @default(true) @map("new_pins")
+  achievements          Boolean  @default(true) @map("achievements")
+  levelUp               Boolean  @default(true) @map("level_up")
+  taskCompleted         Boolean  @default(true) @map("task_completed")
 
-  // Премиум напоминания (только для premium)
-  reminderDayBefore     Boolean  @default(false)   // Напоминание за день
-  reminderHourBefore    Boolean  @default(false)   // Напоминание за час
-  reminder15MinBefore   Boolean  @default(false)   // Напоминание за 15 минут
+  reminderDayBefore     Boolean  @default(false) @map("reminder_day_before")
+  reminderHourBefore    Boolean  @default(false) @map("reminder_hour_before")
+  reminder15MinBefore   Boolean  @default(false) @map("reminder_15_min_before")
 
-  // Время тихого режима
-  quietHoursStart       Int      @default(22)      // Начало тихого режима (час)
-  quietHoursEnd         Int      @default(8)       // Конец тихого режима (час)
+  quietHoursStart       Int      @default(22) @map("quiet_hours_start")
+  quietHoursEnd         Int      @default(8) @map("quiet_hours_end")
 
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -67,18 +64,18 @@ model NotificationSettings {
 }
 
 model Pin {
-  id           String   @id @default(cuid())
-  userId       String
-  imageUrl     String
-  title        String?
-  description  String?
-  category     String?
-  sourceUrl    String?
-  boardUrl     String?  // URL доски Pinterest с которой пришел пин
-  isCompleted  Boolean  @default(false)
-  points       Int      @default(10)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id           String   @id @default(cuid()) @map("id")
+  userId       String   @map("user_id")
+  imageUrl     String   @map("image_url")
+  title        String?  @map("title")
+  description  String?  @map("description")
+  category     String?  @map("category")
+  sourceUrl    String?  @map("source_url")
+  boardUrl     String?  @map("board_url")
+  isCompleted  Boolean  @default(false) @map("is_completed")
+  points       Int      @default(10) @map("points")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
   
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks        Task[]
@@ -88,21 +85,21 @@ model Pin {
 }
 
 model Task {
-  id            String   @id @default(cuid())
-  userId        String
-  pinId         String?
-  title         String
-  description   String?
-  imageUrl      String?  // Изображение из пина для превью
-  category      String?
-  priority      String   @default("medium") // low, medium, high
-  status        String   @default("pending") // pending, in_progress, completed
-  dueDate       DateTime?
-  reminderTime  DateTime?   // Когда напомнить
-  reminderSent  Boolean  @default(false) // Напоминание отправлено?
-  points        Int      @default(5)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id            String   @id @default(cuid()) @map("id")
+  userId        String   @map("user_id")
+  pinId         String?  @map("pin_id")
+  title         String   @map("title")
+  description   String?  @map("description")
+  imageUrl      String?  @map("image_url")
+  category      String?  @map("category")
+  priority      String   @default("medium") @map("priority")
+  status        String   @default("pending") @map("status")
+  dueDate       DateTime? @map("due_date")
+  reminderTime  DateTime? @map("reminder_time")
+  reminderSent  Boolean  @default(false) @map("reminder_sent")
+  points        Int      @default(5) @map("points")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
   
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   pin           Pin?     @relation(fields: [pinId], references: [id], onDelete: SetNull)
@@ -111,14 +108,14 @@ model Task {
 }
 
 model Achievement {
-  id          String   @id @default(cuid())
-  name        String
-  description String
-  icon        String
-  category    String   // pins, tasks, social, premium
-  requirement Int      // Number needed to unlock
-  points      Int      // Points awarded for achievement
-  createdAt   DateTime @default(now())
+  id          String   @id @default(cuid()) @map("id")
+  name        String   @map("name")
+  description String   @map("description")
+  icon        String   @map("icon")
+  category    String   @map("category")
+  requirement Int      @map("requirement")
+  points      Int      @map("points")
+  createdAt   DateTime @default(now()) @map("created_at")
   
   userAchievements UserAchievement[]
   
@@ -126,10 +123,10 @@ model Achievement {
 }
 
 model UserAchievement {
-  id             String   @id @default(cuid())
-  userId         String
-  achievementId  String
-  unlockedAt     DateTime @default(now())
+  id             String   @id @default(cuid()) @map("id")
+  userId         String   @map("user_id")
+  achievementId  String   @map("achievement_id")
+  unlockedAt     DateTime @default(now()) @map("unlocked_at")
   
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   achievement    Achievement  @relation(fields: [achievementId], references: [id], onDelete: Cascade)
@@ -140,15 +137,15 @@ model UserAchievement {
 
 // Admin Panel Models
 model Admin {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  passwordHash String
-  email        String?  @unique
-  role         String   @default("admin") // admin, superadmin
-  isActive     Boolean  @default(true)
-  lastLoginAt  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id           String   @id @default(cuid()) @map("id")
+  username     String   @unique @map("username")
+  passwordHash String   @map("password_hash")
+  email        String?  @unique @map("email")
+  role         String   @default("admin") @map("role")
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
   
   logs         AdminLog[]
   
@@ -156,15 +153,15 @@ model Admin {
 }
 
 model AdminLog {
-  id          String   @id @default(cuid())
-  adminId     String
-  action      String   // login, logout, create_user, delete_pin, etc.
-  entityType  String?  // user, pin, task, payment
-  entityId    String?
-  details     String?  // JSON with additional info
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
+  id          String   @id @default(cuid()) @map("id")
+  adminId     String   @map("admin_id")
+  action      String   @map("action")
+  entityType  String?  @map("entity_type")
+  entityId    String?  @map("entity_id")
+  details     String?  @map("details")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
   
   admin       Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
   
@@ -175,43 +172,40 @@ model AdminLog {
 }
 
 model PaymentSettings {
-  id                    String   @id @default(cuid())
+  id                    String   @id @default(cuid()) @map("id")
   
-  // Telegram Stars
-  starsEnabled          Boolean  @default(false)
-  starsMonthPrice       Int      @default(299)
-  starsYearPrice        Int      @default(1999)
-  starsLifetimePrice    Int      @default(4999)
+  starsEnabled          Boolean  @default(false) @map("stars_enabled")
+  starsMonthPrice       Int      @default(299) @map("stars_month_price")
+  starsYearPrice        Int      @default(1999) @map("stars_year_price")
+  starsLifetimePrice    Int      @default(4999) @map("stars_lifetime_price")
   
-  // YooKassa
-  yookassaEnabled       Boolean  @default(false)
-  yookassaShopId        String?
-  yookassaSecretKey     String?
-  yookassaMonthPrice    Int      @default(299)
-  yookassaYearPrice     Int      @default(1999)
-  yookassaLifetimePrice Int      @default(4999)
+  yookassaEnabled       Boolean  @default(false) @map("yookassa_enabled")
+  yookassaShopId        String?  @map("yookassa_shop_id")
+  yookassaSecretKey     String?  @map("yookassa_secret_key")
+  yookassaMonthPrice    Int      @default(299) @map("yookassa_month_price")
+  yookassaYearPrice     Int      @default(1999) @map("yookassa_year_price")
+  yookassaLifetimePrice Int      @default(4999) @map("yookassa_lifetime_price")
   
-  // General
-  currency              String   @default("RUB")
-  trialDays             Int      @default(7)
+  currency              String   @default("RUB") @map("currency")
+  trialDays             Int      @default(7) @map("trial_days")
   
-  updatedAt             DateTime @updatedAt
+  updatedAt             DateTime @updatedAt @map("updated_at")
   
   @@map("payment_settings")
 }
 
 model PaymentTransaction {
-  id              String   @id @default(cuid())
-  userId          String
-  amount          Int
-  currency        String   @default("RUB")
-  status          String   @default("pending") // pending, completed, failed, refunded
-  provider        String   // yookassa, telegram_stars
-  providerTxId    String?  @unique // Transaction ID from provider
-  planType        String   // month, year, lifetime
-  metadata        String?  // JSON
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id              String   @id @default(cuid()) @map("id")
+  userId          String   @map("user_id")
+  amount          Int      @map("amount")
+  currency        String   @default("RUB") @map("currency")
+  status          String   @default("pending") @map("status")
+  provider        String   @map("provider")
+  providerTxId    String?  @unique @map("provider_tx_id")
+  planType        String   @map("plan_type")
+  metadata        String?  @map("metadata")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
   
   @@index([userId])
   @@index([status])
@@ -220,26 +214,26 @@ model PaymentTransaction {
 }
 
 model AppSettings {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String
-  description String?
-  updatedAt   DateTime @updatedAt
+  id          String   @id @default(cuid()) @map("id")
+  key         String   @unique @map("key")
+  value       String   @map("value")
+  description String?  @map("description")
+  updatedAt   DateTime @updatedAt @map("updated_at")
   
   @@map("app_settings")
 }
 
 model BotLog {
-  id          String   @id @default(cuid())
-  level       String   // info, warning, error, debug
-  source      String   // telegram, api, database, scheduler, payment
-  message     String
-  details     String?  // JSON with additional info
-  userId      String?
-  telegramId  String?
-  requestId   String?
-  duration    Int?     // milliseconds
-  createdAt   DateTime @default(now())
+  id          String   @id @default(cuid()) @map("id")
+  level       String   @map("level")
+  source      String   @map("source")
+  message     String   @map("message")
+  details     String?  @map("details")
+  userId      String?  @map("user_id")
+  telegramId  String?  @map("telegram_id")
+  requestId   String?  @map("request_id")
+  duration    Int?     @map("duration")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([level])
   @@index([source])
@@ -250,18 +244,18 @@ model BotLog {
 
 // Pinterest Board Sync
 model PinterestBoard {
-  id              String   @id @default(cuid())
-  userId          String
-  boardUrl        String   // URL доски Pinterest
-  boardName       String?  // Название доски
-  boardUsername   String?  // Username владельца доски
-  lastSyncAt      DateTime? // Последняя синхронизация
-  totalPins       Int      @default(0) // Всего пинов при последней синхронизации
-  newPins         Int      @default(0) // Новых пинов при последней синхронизации
-  isActive        Boolean  @default(true) // Активна ли синхронизация
-  autoSync        Boolean  @default(false) // Автоматическая синхронизация
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id              String   @id @default(cuid()) @map("id")
+  userId          String   @map("user_id")
+  boardUrl        String   @map("board_url")
+  boardName       String?  @map("board_name")
+  boardUsername   String?  @map("board_username")
+  lastSyncAt      DateTime? @map("last_sync_at")
+  totalPins       Int      @default(0) @map("total_pins")
+  newPins         Int      @default(0) @map("new_pins")
+  isActive        Boolean  @default(true) @map("is_active")
+  autoSync        Boolean  @default(false) @map("auto_sync")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -273,29 +267,26 @@ model PinterestBoard {
 
 // Рекламные интеграции
 model Ad {
-  id          String   @id @default(cuid())
-  title       String
-  content     String   // Текст рекламы (HTML)
-  imageUrl    String?  // Картинка (опционально)
-  linkUrl     String?  // Ссылка (опционально)
-  buttonText  String?  // Текст кнопки
+  id          String   @id @default(cuid()) @map("id")
+  title       String   @map("title")
+  content     String   @map("content")
+  imageUrl    String?  @map("image_url")
+  linkUrl     String?  @map("link_url")
+  buttonText  String?  @map("button_text")
 
-  // Таргетинг
-  targetAll       Boolean  @default(true)   // Всем пользователям
-  targetPremium   Boolean  @default(false)  // Только премиум
-  targetFree      Boolean  @default(false)  // Только бесплатные
+  targetAll       Boolean  @default(true) @map("target_all")
+  targetPremium   Boolean  @default(false) @map("target_premium")
+  targetFree      Boolean  @default(false) @map("target_free")
 
-  // Статус
-  status      String   @default("draft") // draft, scheduled, active, completed, paused
-  scheduledAt DateTime? // Когда запланирована публикация
+  status      String   @default("draft") @map("status")
+  scheduledAt DateTime? @map("scheduled_at")
 
-  // Статистика
-  sentCount   Int      @default(0)  // Количество отправок
-  clickCount  Int      @default(0)  // Количество кликов
+  sentCount   Int      @default(0) @map("sent_count")
+  clickCount  Int      @default(0) @map("click_count")
 
-  createdBy   String?  // ID админа
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@index([status])
   @@index([scheduledAt])
@@ -304,32 +295,28 @@ model Ad {
 
 // Рассылки
 model Broadcast {
-  id          String   @id @default(cuid())
-  title       String
-  content     String   // Текст рассылки (HTML)
-  imageUrl    String?  // Картинка (опционально)
+  id          String   @id @default(cuid()) @map("id")
+  title       String   @map("title")
+  content     String   @map("content")
+  imageUrl    String?  @map("image_url")
 
-  // Таргетинг
-  targetAll       Boolean  @default(true)   // Всем пользователям
-  targetPremium   Boolean  @default(false)  // Только премиум
-  targetFree      Boolean  @default(false)  // Только бесплатные
+  targetAll       Boolean  @default(true) @map("target_all")
+  targetPremium   Boolean  @default(false) @map("target_premium")
+  targetFree      Boolean  @default(false) @map("target_free")
 
-  // Статус
-  status      String   @default("draft") // draft, sending, sent, failed
-  scheduledAt DateTime? // Когда запланирована рассылка
-  startedAt   DateTime? // Когда началась рассылка
-  completedAt DateTime? // Когда завершилась
+  status      String   @default("draft") @map("status")
+  scheduledAt DateTime? @map("scheduled_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
 
-  // Статистика
-  totalRecipients  Int  @default(0)  // Всего получателей
-  sentCount        Int  @default(0)  // Успешно отправлено
-  failedCount      Int  @default(0)  // Ошибок
+  totalRecipients  Int  @default(0) @map("total_recipients")
+  sentCount        Int  @default(0) @map("sent_count")
+  failedCount      Int  @default(0) @map("failed_count")
 
-  createdBy   String?  // ID админа
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  // Детали отправки
   broadcastLogs BroadcastLog[]
 
   @@index([status])
@@ -337,15 +324,15 @@ model Broadcast {
   @@map("broadcasts")
 }
 
-// Логи рассылок (для отслеживания отправки каждому пользователю)
+// Логи рассылок
 model BroadcastLog {
-  id            String   @id @default(cuid())
-  broadcastId   String
-  userId        String
-  telegramId    String
-  status        String   @default("pending") // pending, sent, failed
-  error         String?
-  sentAt        DateTime?
+  id            String   @id @default(cuid()) @map("id")
+  broadcastId   String   @map("broadcast_id")
+  userId        String   @map("user_id")
+  telegramId    String   @map("telegram_id")
+  status        String   @default("pending") @map("status")
+  error         String?  @map("error")
+  sentAt        DateTime? @map("sent_at")
 
   broadcast     Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
 
@@ -357,34 +344,29 @@ model BroadcastLog {
 
 // Система поддержки
 model SupportTicket {
-  id              String   @id @default(cuid())
-  userId          String
-  telegramId      String
-  chatId          String   // Telegram chat ID для ответов
+  id              String   @id @default(cuid()) @map("id")
+  userId          String   @map("user_id")
+  telegramId      String   @map("telegram_id")
+  chatId          String   @map("chat_id")
 
-  // Информация о тикете
-  subject         String?  // Тема (опционально)
-  category        String   @default("general") // general, bug, feature, payment, other
-  priority        String   @default("normal") // low, normal, high, urgent
+  subject         String?  @map("subject")
+  category        String   @default("general") @map("category")
+  priority        String   @default("normal") @map("priority")
 
-  // Статус
-  status          String   @default("open") // open, in_progress, waiting_user, resolved, closed
+  status          String   @default("open") @map("status")
 
-  // Метаданные
-  firstMessage    String   // Первое сообщение пользователя
-  lastMessage     String?  // Последнее сообщение в переписке
-  lastMessageAt   DateTime? // Время последнего сообщения
-  lastMessageFrom String?  // Кто отправил последнее сообщение (user/admin)
+  firstMessage    String   @map("first_message")
+  lastMessage     String?  @map("last_message")
+  lastMessageAt   DateTime? @map("last_message_at")
+  lastMessageFrom String?  @map("last_message_from")
 
-  // Временные метки
-  assignedTo      String?  // ID админа, который взял тикет
-  assignedAt      DateTime?
-  resolvedAt      DateTime?
-  closedAt        DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  assignedTo      String?  @map("assigned_to")
+  assignedAt      DateTime? @map("assigned_at")
+  resolvedAt      DateTime? @map("resolved_at")
+  closedAt        DateTime? @map("closed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  // Связи
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages        SupportMessage[]
 
@@ -397,20 +379,19 @@ model SupportTicket {
 
 // Сообщения в тикетах поддержки
 model SupportMessage {
-  id          String   @id @default(cuid())
-  ticketId    String
-  senderType  String   // user, admin, bot
-  senderId    String?  // ID админа если отправитель админ
-  senderName  String?  // Имя отправителя
+  id          String   @id @default(cuid()) @map("id")
+  ticketId    String   @map("ticket_id")
+  senderType  String   @map("sender_type")
+  senderId    String?  @map("sender_id")
+  senderName  String?  @map("sender_name")
 
-  message     String   // Текст сообщения (HTML)
-  isRead      Boolean  @default(false) // Прочитано ли получателем
-  readAt      DateTime?
+  message     String   @map("message")
+  isRead      Boolean  @default(false) @map("is_read")
+  readAt      DateTime? @map("read_at")
 
-  // Вложения (опционально)
-  attachments String?  // JSON массив URL вложений
+  attachments String?  @map("attachments")
 
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at")
 
   ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
@@ -419,14 +400,14 @@ model SupportMessage {
   @@map("support_messages")
 }
 
-// Сообщения бота для возможности очистки чата
+// Сообщения бота
 model BotMessage {
-  id          String   @id @default(cuid())
-  telegramId  String   // Telegram ID пользователя
-  chatId      String   // Chat ID (обычно совпадает с telegramId в личке)
-  messageId   Int      // ID сообщения в Telegram
+  id          String   @id @default(cuid()) @map("id")
+  telegramId  String   @map("telegram_id")
+  chatId      String   @map("chat_id")
+  messageId   Int      @map("message_id")
 
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@unique([chatId, messageId])
   @@index([telegramId])
@@ -434,25 +415,22 @@ model BotMessage {
   @@map("bot_messages")
 }
 
-// Задачи для парсинга Pinterest (обрабатываются Python скриптом на ПК)
+// Задачи для парсинга Pinterest
 model ScraperTask {
-  id              String   @id @default(cuid())
-  userId          String
-  boardUrl        String   // URL доски Pinterest
+  id              String   @id @default(cuid()) @map("id")
+  userId          String   @map("user_id")
+  boardUrl        String   @map("board_url")
   
-  // Статус
-  status          String   @default("pending") // pending, processing, completed, failed
+  status          String   @default("pending") @map("status")
   
-  // Результат
-  totalPins       Int      @default(0)
-  importedPins    Int      @default(0)
-  errorMessage    String?
+  totalPins       Int      @default(0) @map("total_pins")
+  importedPins    Int      @default(0) @map("imported_pins")
+  errorMessage    String?  @map("error_message")
   
-  // Время
-  startedAt       DateTime?
-  completedAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  startedAt       DateTime? @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -463,37 +441,28 @@ model ScraperTask {
 
 // Подписки пользователей
 model Subscription {
-  id              String   @id @default(cuid())
-  userId          String
+  id              String   @id @default(cuid()) @map("id")
+  userId          String   @map("user_id")
   
-  // Тип плана
-  plan            String   // month, year, lifetime
+  plan            String   @map("plan")
+  status          String   @default("pending") @map("status")
   
-  // Статус подписки
-  status          String   @default("pending") // pending, active, expired, cancelled, refunded
+  provider        String   @map("provider")
+  transactionId   String?  @map("transaction_id")
   
-  // Провайдер оплаты
-  provider        String   // yookassa, telegram_stars, manual (admin gift)
-  transactionId   String?  // ID транзакции из PaymentTransaction
+  amount          Int      @default(0) @map("amount")
+  currency        String   @default("RUB") @map("currency")
   
-  // Финансы
-  amount          Int      @default(0)   // Сумма в копейках/центах
-  currency        String   @default("RUB")
+  startedAt       DateTime? @map("started_at")
+  expiresAt       DateTime? @map("expires_at")
+  cancelledAt     DateTime? @map("cancelled_at")
+  cancelledReason String?  @map("cancelled_reason")
   
-  // Даты
-  startedAt       DateTime?  // Когда начала действовать
-  expiresAt       DateTime?  // Когда истекает (null для lifetime)
-  cancelledAt     DateTime?  // Когда была отменена
-  cancelledReason String?   // Причина отмены
+  metadata        String?  @map("metadata")
+  grantedBy       String?  @map("granted_by")
   
-  // Дополнительная информация
-  metadata        String?    // JSON с доп. данными
-  
-  // Админ, который выдал подписку (для manual)
-  grantedBy       String?    // ID админа
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

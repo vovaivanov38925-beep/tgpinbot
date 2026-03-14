@@ -149,9 +149,9 @@ export async function updateUserPremiumStatus(userId: string): Promise<void> {
 
   await db.$executeRaw`
     UPDATE users
-    SET "isPremium" = ${!!activeSubscription},
-        "premiumExpiry" = ${activeSubscription?.expiresAt || null},
-        "updatedAt" = ${new Date()}
+    SET is_premium = ${!!activeSubscription},
+        premium_expiry = ${activeSubscription?.expiresAt || null},
+        updated_at = ${new Date()}
     WHERE id = ${userId}
   `
 }
@@ -355,7 +355,7 @@ export async function getSubscriptionsPaginated(params: {
     queryParams.push(provider)
   }
   if (search) {
-    whereConditions += ` AND (u."telegramId" ILIKE $${paramIndex} OR u.username ILIKE $${paramIndex} OR u."firstName" ILIKE $${paramIndex})`
+    whereConditions += ` AND (u.telegram_id ILIKE $${paramIndex} OR u.username ILIKE $${paramIndex} OR u.first_name ILIKE $${paramIndex})`
     queryParams.push(`%${search}%`)
     paramIndex++
   }
@@ -369,7 +369,7 @@ export async function getSubscriptionsPaginated(params: {
 
   // Получаем записи
   const results = await db.$queryRawUnsafe<any[]>(
-    `SELECT s.*, u.id as "user_id", u."telegramId", u.username, u."firstName", u."lastName", u."photoUrl", u."isPremium"
+    `SELECT s.*, u.id as user_id, u.telegram_id, u.username, u.first_name, u.last_name, u.photo_url, u.is_premium
      FROM subscriptions s
      JOIN users u ON s.user_id = u.id
      ${whereConditions}
@@ -382,12 +382,12 @@ export async function getSubscriptionsPaginated(params: {
     ...mapRowToSubscription(row),
     user: {
       id: row.user_id,
-      telegramId: row.telegramId,
+      telegramId: row.telegram_id,
       username: row.username,
-      firstName: row.firstName,
-      lastName: row.lastName,
-      photoUrl: row.photoUrl,
-      isPremium: row.isPremium
+      firstName: row.first_name,
+      lastName: row.last_name,
+      photoUrl: row.photo_url,
+      isPremium: row.is_premium
     }
   }))
 
