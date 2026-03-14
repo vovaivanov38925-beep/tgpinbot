@@ -29,39 +29,37 @@ const BASE_PRICES_TON = {
 /**
  * Получить актуальные цены для всех способов оплаты
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Пытаемся получить настройки оплаты
-    let settings: any = null
-    try {
-      settings = await db.paymentSettings.findFirst()
-    } catch (e) {
-      console.log('PaymentSettings table not available, using defaults')
-    }
+    // Получаем настройки через raw query
+    const results = await db.$queryRaw<any[]>`
+      SELECT * FROM payment_settings LIMIT 1
+    `
+    const settings = results[0]
 
     // Курсы валют
-    const starRate = settings?.starToRubRate || DEFAULT_STAR_RATE
-    const tonRate = settings?.tonToRubRate || DEFAULT_TON_RATE
+    const starRate = settings?.startorubrate || DEFAULT_STAR_RATE
+    const tonRate = settings?.tontorubrate || DEFAULT_TON_RATE
 
     // Цены в Stars (из настроек или дефолтные)
     const starsPrices = {
-      month: settings?.starsMonthPrice || BASE_PRICES_STARS.month,
-      year: settings?.starsYearPrice || BASE_PRICES_STARS.year,
-      lifetime: settings?.starsLifetimePrice || BASE_PRICES_STARS.lifetime
+      month: settings?.starsmonthprice || BASE_PRICES_STARS.month,
+      year: settings?.starsyearprice || BASE_PRICES_STARS.year,
+      lifetime: settings?.starslifetimeprice || BASE_PRICES_STARS.lifetime
     }
 
     // Цены в TON
     const tonPrices = {
-      month: settings?.tonMonthPrice || BASE_PRICES_TON.month,
-      year: settings?.tonYearPrice || BASE_PRICES_TON.year,
-      lifetime: settings?.tonLifetimePrice || BASE_PRICES_TON.lifetime
+      month: settings?.tonmonthprice || BASE_PRICES_TON.month,
+      year: settings?.tonyearprice || BASE_PRICES_TON.year,
+      lifetime: settings?.tonlifetimeprice || BASE_PRICES_TON.lifetime
     }
 
     // Цены в рублях
     const rubPrices = {
-      month: settings?.yookassaMonthPrice ? Math.round(settings.yookassaMonthPrice / 100) : BASE_PRICES_RUB.month,
-      year: settings?.yookassaYearPrice ? Math.round(settings.yookassaYearPrice / 100) : BASE_PRICES_RUB.year,
-      lifetime: settings?.yookassaLifetimePrice ? Math.round(settings.yookassaLifetimePrice / 100) : BASE_PRICES_RUB.lifetime
+      month: settings?.yookassamonthprice ? Math.round(settings.yookassamonthprice / 100) : BASE_PRICES_RUB.month,
+      year: settings?.yookassayearprice ? Math.round(settings.yookassayearprice / 100) : BASE_PRICES_RUB.year,
+      lifetime: settings?.yookassalifetimeprice ? Math.round(settings.yookassalifetimeprice / 100) : BASE_PRICES_RUB.lifetime
     }
 
     return NextResponse.json({
@@ -73,14 +71,14 @@ export async function GET(request: NextRequest) {
       rates: {
         starToRub: starRate,
         tonToRub: tonRate,
-        updatedAt: settings?.ratesUpdatedAt || null
+        updatedAt: settings?.ratesupdatedat || null
       },
       enabled: {
-        stars: settings?.starsEnabled ?? true, // По умолчанию включено
-        ton: settings?.tonEnabled ?? false,
-        yookassa: settings?.yookassaEnabled ?? false
+        stars: settings?.starsenabled ?? true,
+        ton: settings?.tonenabled ?? false,
+        yookassa: settings?.yookassaenabled ?? false
       },
-      tonWallet: settings?.tonWalletAddress || null
+      tonWallet: settings?.tonwalletaddress || null
     })
   } catch (error) {
     console.error('Error getting prices:', error)
@@ -114,28 +112,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { starToRub, tonToRub } = body
 
-    let settings = await db.paymentSettings.findFirst()
+    // Проверяем есть ли настройки
+    const results = await db.$queryRaw<any[]>`
+      SELECT id FROM payment_settings LIMIT 1
+    `
+    const existingId = results[0]?.id
 
-    if (!settings) {
-      settings = await db.paymentSettings.create({
-        data: {
-          starToRubRate: starToRub || DEFAULT_STAR_RATE,
-          tonToRubRate: tonToRub || DEFAULT_TON_RATE,
-          ratesUpdatedAt: new Date()
-        }
-      })
+    if (existingId) {
+      await db.$queryRawUnsafe(`
+        UPDATE payment_settings SET
+          startorubrate = ${starToRub || DEFAULT_STAR_RATE},
+          tontorubrate = ${tonToRub || DEFAULT_TON_RATE},
+          ratesupdatedat = NOW()
+        WHERE id = '${existingId}'
+      `)
     } else {
-      settings = await db.paymentSettings.update({
-        where: { id: settings.id },
-        data: {
-          starToRubRate: starToRub || settings.starToRubRate,
-          tonToRubRate: tonToRub || settings.tonToRubRate,
-          ratesUpdatedAt: new Date()
-        }
-      })
+      await db.$queryRawUnsafe(`
+        INSERT INTO payment_settings (id, startorubrate, tontorubrate, ratesupdatedat)
+        VALUES ('default', ${starToRub || DEFAULT_STAR_RATE}, ${tonToRub || DEFAULT_TON_RATE}, NOW())
+      `)
     }
 
-    return NextResponse.json({ success: true, settings })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error updating rates:', error)
     return NextResponse.json({ error: 'Ошибка обновления курсов' }, { status: 500 })
